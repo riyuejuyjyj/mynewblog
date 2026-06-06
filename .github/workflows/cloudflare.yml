@@ -1,0 +1,81 @@
+name: Cloudflare
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy to Cloudflare after verification"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BETTER_AUTH_URL: https://tong777.ccwu.cc
+  NEXT_PUBLIC_BETTER_AUTH_URL: https://tong777.ccwu.cc
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+  STUDIO_INVITE_CODE: ${{ secrets.STUDIO_INVITE_CODE }}
+  R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+  R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+  R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  R2_BUCKET: ${{ secrets.R2_BUCKET }}
+  R2_PUBLIC_BASE_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+jobs:
+  verify:
+    name: Verify Cloudflare bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check production environment
+        run: bun run check:prod-env
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Build Next.js
+        run: bun run build
+
+      - name: Build Cloudflare Worker
+        run: bun run build:cloudflare
+
+      - name: Require Cloudflare deploy credentials
+        if: ${{ inputs.deploy }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "CLOUDFLARE_API_TOKEN GitHub secret is required for deploy."
+            exit 1
+          fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "CLOUDFLARE_ACCOUNT_ID GitHub secret is required for deploy."
+            exit 1
+          fi
+
+      - name: Deploy to Cloudflare
+        if: ${{ inputs.deploy }}
+        run: bun run deploy:cloudflare
