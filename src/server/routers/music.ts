@@ -791,6 +791,32 @@ async function resolveDownloadAudio(
   const pluginProvider = pluginProviderSchema.safeParse(input.provider);
 
   if (pluginProvider.success) {
+    const configuredErrorMessages: string[] = [];
+    const sourceProvider = sourceProviderSchema.safeParse(pluginProvider.data);
+
+    if (sourceProvider.success && input.sourceSongId.trim()) {
+      const configuredResult = await resolveWithConfiguredSource(ctx, {
+        provider: sourceProvider.data,
+        quality: input.quality,
+        songId: input.sourceSongId,
+      }).catch((error: unknown) => {
+        configuredErrorMessages.push(
+          error instanceof Error
+            ? error.message
+            : "Configured music source resolve failed.",
+        );
+        return null;
+      });
+
+      if (configuredResult?.audioUrl) {
+        return {
+          audioUrl: configuredResult.audioUrl,
+          lyric: input.lyric,
+          warnings: configuredResult.warnings,
+        };
+      }
+    }
+
     const searchDefinitions = await getConfiguredSearchDefinitions(ctx);
     const candidate =
       input.candidate ??
@@ -810,7 +836,18 @@ async function resolveDownloadAudio(
       songId: input.sourceSongId,
     }).catch((error: unknown) => {
       if (!input.audioUrl.trim()) {
-        throw error;
+        const pluginMessage =
+          error instanceof Error
+            ? error.message
+            : "Remote music source resolve failed.";
+        const configuredMessage = configuredErrorMessages.at(-1);
+
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: configuredMessage
+            ? `Download audio resolve failed: configured source failed (${configuredMessage}); remote source failed (${pluginMessage}).`
+            : `Download audio resolve failed: ${pluginMessage}`,
+        });
       }
 
       return {
@@ -827,7 +864,12 @@ async function resolveDownloadAudio(
     return {
       audioUrl: resolved.audioUrl,
       lyric: resolved.lyric ?? input.lyric,
-      warnings: resolved.warnings,
+      warnings: [
+        ...configuredErrorMessages.map(
+          (message) => `Configured music source failed; used remote source: ${message}`,
+        ),
+        ...resolved.warnings,
+      ],
     };
   }
 
