@@ -88,7 +88,13 @@ Required GitHub Secrets:
 
 The workflow hardcodes the production origin as `https://tong777.ccwu.cc` for both `BETTER_AUTH_URL` and `NEXT_PUBLIC_BETTER_AUTH_URL`.
 
-Cloudflare runtime secrets still need to exist in Cloudflare Workers. GitHub Secrets let CI build and deploy; they do not automatically populate the deployed Worker's runtime secret store.
+When `deploy` is checked, the workflow writes the app runtime secrets into a temporary `.cloudflare-secrets.json` file and deploys with:
+
+```bash
+bunx wrangler deploy --secrets-file .cloudflare-secrets.json
+```
+
+This lets GitHub Secrets be the single source for the first deploy. The temporary file exists only inside the GitHub Actions runner.
 
 For Cloudflare runtime preview:
 
@@ -143,7 +149,8 @@ bun run db:migrate
 - Build-time public variables must be present before running `bun run build:cloudflare`:
   - `NEXT_PUBLIC_BETTER_AUTH_URL`
 
-- Cloudflare runtime secrets must be set before deploy. At minimum:
+- GitHub Actions deploy syncs runtime secrets from GitHub Secrets with `wrangler deploy --secrets-file`.
+- If deploying manually outside GitHub Actions, set Cloudflare runtime secrets first. At minimum:
 
 ```powershell
 wrangler secret put DATABASE_URL

@@ -76,6 +76,54 @@ jobs:
             exit 1
           fi
 
+      - name: Write Cloudflare runtime secrets
+        if: ${{ inputs.deploy }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const requiredKeys = [
+            "DATABASE_URL",
+            "BETTER_AUTH_SECRET",
+            "BETTER_AUTH_URL",
+            "NEXT_PUBLIC_BETTER_AUTH_URL",
+            "STUDIO_INVITE_CODE",
+            "R2_ACCOUNT_ID",
+            "R2_ACCESS_KEY_ID",
+            "R2_SECRET_ACCESS_KEY",
+            "R2_BUCKET",
+            "R2_PUBLIC_BASE_URL",
+          ];
+          const optionalKeys = ["R2_ENDPOINT"];
+          const secrets = {};
+
+          for (const key of requiredKeys) {
+            const value = process.env[key]?.trim();
+
+            if (!value) {
+              console.error(`${key} GitHub secret or workflow env is required for deploy.`);
+              process.exitCode = 1;
+              continue;
+            }
+
+            secrets[key] = value;
+          }
+
+          for (const key of optionalKeys) {
+            const value = process.env[key]?.trim();
+
+            if (value) {
+              secrets[key] = value;
+            }
+          }
+
+          if (process.exitCode) {
+            process.exit(process.exitCode);
+          }
+
+          fs.writeFileSync(".cloudflare-secrets.json", JSON.stringify(secrets));
+          NODE
+
       - name: Deploy to Cloudflare
         if: ${{ inputs.deploy }}
-        run: bun run deploy:cloudflare
+        run: bunx wrangler deploy --secrets-file .cloudflare-secrets.json

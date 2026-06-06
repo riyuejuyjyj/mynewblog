@@ -46,9 +46,9 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
   - Write a short deploy/runbook note covering env vars, migrations, and rollback.
 
 ## Immediate Next Actions
-1. Add the required GitHub Secrets, then run the `Cloudflare` workflow with `deploy` unchecked.
-2. If Linux CI passes `bun run build:cloudflare`, rerun the workflow with `deploy` checked.
-3. Set or verify Cloudflare Worker runtime secrets before the first real deploy.
+1. Add `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as GitHub Repository secrets.
+2. Rerun the `Cloudflare` workflow with `deploy` checked.
+3. Verify the first deployed Worker URL, then bind/verify the production domain `https://tong777.ccwu.cc`.
 4. Resume the highest-impact Studio publishing and media blockers after the deployment path is unblocked.
 
 ## Decisions Made
@@ -60,7 +60,7 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 ## Errors Encountered
 - `bun run build:cloudflare` reaches OpenNext bundling but fails on Windows symlink creation for traced `node_modules` packages (`EPERM: operation not permitted, symlink ... @aws-sdk/client-s3`). Retrying with elevated permissions produced the same error. Treat this as an environment blocker and rerun from WSL/Linux CI.
 - `bun run lint` initially scanned generated `.open-next/` output after the failed Cloudflare build. Fixed by adding `.open-next/**` and `.wrangler/**` to `eslint.config.mjs` global ignores and `.gitignore`.
-- `bun run check:prod-env` warns that `CLOUDFLARE_API_TOKEN` is not set. This must be fixed before non-interactive deployment.
+- `bun run check:prod-env` warns locally that `CLOUDFLARE_API_TOKEN` is not set. GitHub deploy requires `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` repository secrets.
 
 ## Open Questions
 1. Which content flow matters first: public blog publishing or Studio admin ergonomics?
@@ -71,4 +71,4 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - Cloudflare build/deploy should run from GitHub Actions/Linux CI first. WSL remains useful for local reproduction, but it is no longer the main release path.
 
 ## Status
-Currently in Phase 2: Cloudflare/OpenNext setup, production readiness documentation, and a manual GitHub Actions workflow are in place. Next work is to configure GitHub Secrets, run the workflow with `deploy` unchecked, then deploy if the Linux build passes.
+Currently in Phase 2: Cloudflare/OpenNext setup, production readiness documentation, and a manual GitHub Actions workflow are in place. Linux CI build verification passed; next work is to add Cloudflare deploy credentials and rerun the workflow with `deploy` checked.
