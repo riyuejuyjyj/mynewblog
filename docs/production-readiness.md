@@ -131,6 +131,7 @@ bun run db:migrate
 ## R2 Checklist
 
 - R2 media uses S3-compatible credentials through `src/lib/r2.ts`.
+- `src/lib/r2.ts` intentionally uses a lightweight SigV4/fetch implementation instead of `@aws-sdk/client-s3` to keep the Cloudflare Worker bundle smaller.
 - `R2_PUBLIC_BASE_URL` should point to a public R2/custom domain so stored media can render without signed previews.
 - Upload path currently supports `covers`, `gallery`, `attachments`, and `music`.
 - Direct route upload size is capped at 25 MB.
@@ -182,6 +183,10 @@ After `preview:cloudflare` or deploy:
 ## Known Risks
 
 - No automated route smoke test exists yet.
+- First GitHub Actions Linux deploy failed Cloudflare validation because the Worker exceeded the Free plan 3 MiB script size limit:
+  - Cloudflare reported `.open-next/server-functions/default/handler.mjs` at about 16 MiB.
+  - Cloudflare Workers Paid raises the Worker size limit to 10 MiB, but the app should still be slimmed before relying on that.
+  - First reduction pass removed app-level AWS SDK R2 dependencies and replaced them with lightweight SigV4/fetch signing.
 - Cloudflare build reaches the OpenNext bundling stage on Windows, but currently fails on symlink creation:
   - `EPERM: operation not permitted, symlink ... node_modules/@aws-sdk/client-s3`
   - Retrying with elevated permissions produced the same error.

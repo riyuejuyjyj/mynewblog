@@ -1,12 +1,4 @@
-import {
-  DeleteObjectCommand,
-  GetObjectCommand,
-  HeadObjectCommand,
-  PutObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 
 type R2UploadInput = {
   folder: "covers" | "gallery" | "attachments" | "music";
@@ -18,6 +10,12 @@ type R2UploadWithKeyInput = R2UploadInput & {
   body: Uint8Array;
   objectKey?: string;
 };
+
+const REGION = "auto";
+const SERVICE = "s3";
+const SIGNING_ALGORITHM = "AWS4-HMAC-SHA256";
+const UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
+const encoder = new TextEncoder();
 
 function cleanEnv(value: string | undefined) {
   let trimmed = value?.trim();
@@ -92,7 +90,7 @@ export function makeR2ObjectKey(input: R2UploadInput) {
     .slice(0, 96);
 
   const stamp = new Date().toISOString().slice(0, 10);
-  const suffix = randomUUID();
+  const suffix = crypto.randomUUID();
 
   return `${input.folder}/${stamp}/${suffix}-${safeName || "upload"}`;
 }
@@ -105,42 +103,261 @@ export function getPublicR2Url(objectKey: string) {
   return `${normalizedPublicBaseUrl}/${objectKey.replace(/^\/+/g, "")}`;
 }
 
-function createR2Client() {
-  if (!isR2Configured() || !endpoint || !accessKeyId || !secretAccessKey) {
+function assertR2Config() {
+  if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
     return null;
   }
 
-  return new S3Client({
-    region: "auto",
-    endpoint,
-    credentials: {
-      accessKeyId,
-      secretAccessKey,
+  return {
+    accessKeyId,
+    bucket,
+    endpoint: endpoint.replace(/\/+$/g, ""),
+    secretAccessKey,
+  };
+}
+
+function encodePathPart(value: string) {
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
+
+function encodeObjectKey(value: string) {
+  return value.split("/").map(encodePathPart).join("/");
+}
+
+function encodeQueryValue(value: string) {
+  return encodePathPart(value).replace(/%7E/g, "~");
+}
+
+function canonicalQueryString(params: Array<[string, string]>) {
+  return params
+    .slice()
+    .sort(([leftKey, leftValue], [rightKey, rightValue]) =>
+      leftKey === rightKey
+        ? leftValue.localeCompare(rightValue)
+        : leftKey.localeCompare(rightKey),
+    )
+    .map(
+      ([key, value]) => `${encodeQueryValue(key)}=${encodeQueryValue(value)}`,
+    )
+    .join("&");
+}
+
+function bytesToHex(bytes: Uint8Array) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(value));
+  return bytesToHex(new Uint8Array(digest));
+}
+
+async function hmacSha256(key: BufferSource, value: string) {
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    key,
+    {
+      hash: "SHA-256",
+      name: "HMAC",
     },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    cryptoKey,
+    encoder.encode(value),
+  );
+
+  return new Uint8Array(signature);
+}
+
+async function createSigningKey(secret: string, dateStamp: string) {
+  const dateKey = await hmacSha256(encoder.encode(`AWS4${secret}`), dateStamp);
+  const regionKey = await hmacSha256(dateKey, REGION);
+  const serviceKey = await hmacSha256(regionKey, SERVICE);
+
+  return hmacSha256(serviceKey, "aws4_request");
+}
+
+function getAmzDate(now = new Date()) {
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
+
+  return {
+    amzDate,
+    dateStamp: amzDate.slice(0, 8),
+  };
+}
+
+function objectUrl(objectKey: string) {
+  const config = assertR2Config();
+
+  if (!config) {
+    return null;
+  }
+
+  return new URL(
+    `${config.endpoint}/${encodePathPart(config.bucket)}/${encodeObjectKey(
+      objectKey,
+    )}`,
+  );
+}
+
+async function createPresignedObjectUrl(input: {
+  expiresIn: number;
+  method: "GET" | "PUT";
+  objectKey: string;
+}) {
+  const config = assertR2Config();
+  const url = objectUrl(input.objectKey);
+
+  if (!config || !url) {
+    return null;
+  }
+
+  const { amzDate, dateStamp } = getAmzDate();
+  const credentialScope = `${dateStamp}/${REGION}/${SERVICE}/aws4_request`;
+  const signedHeaders = "host";
+  const queryParams: Array<[string, string]> = [
+    ["X-Amz-Algorithm", SIGNING_ALGORITHM],
+    ["X-Amz-Credential", `${config.accessKeyId}/${credentialScope}`],
+    ["X-Amz-Date", amzDate],
+    ["X-Amz-Expires", String(input.expiresIn)],
+    ["X-Amz-SignedHeaders", signedHeaders],
+  ];
+  const canonicalRequest = [
+    input.method,
+    url.pathname,
+    canonicalQueryString(queryParams),
+    `host:${url.host}\n`,
+    signedHeaders,
+    UNSIGNED_PAYLOAD,
+  ].join("\n");
+  const stringToSign = [
+    SIGNING_ALGORITHM,
+    amzDate,
+    credentialScope,
+    await sha256Hex(canonicalRequest),
+  ].join("\n");
+  const signingKey = await createSigningKey(config.secretAccessKey, dateStamp);
+  const signature = bytesToHex(await hmacSha256(signingKey, stringToSign));
+
+  url.search = canonicalQueryString([
+    ...queryParams,
+    ["X-Amz-Signature", signature],
+  ]);
+
+  return url.toString();
+}
+
+async function createSignedHeaders(input: {
+  contentType?: string;
+  method: string;
+  url: URL;
+}) {
+  const config = assertR2Config();
+
+  if (!config) {
+    return null;
+  }
+
+  const { amzDate, dateStamp } = getAmzDate();
+  const credentialScope = `${dateStamp}/${REGION}/${SERVICE}/aws4_request`;
+  const headersToSign: Array<[string, string]> = [
+    ["host", input.url.host],
+    ["x-amz-content-sha256", UNSIGNED_PAYLOAD],
+    ["x-amz-date", amzDate],
+  ];
+
+  if (input.contentType) {
+    headersToSign.push(["content-type", input.contentType]);
+  }
+
+  headersToSign.sort(([left], [right]) => left.localeCompare(right));
+
+  const canonicalHeaders = `${headersToSign
+    .map(([key, value]) => `${key}:${value}`)
+    .join("\n")}\n`;
+  const signedHeaders = headersToSign.map(([key]) => key).join(";");
+  const canonicalRequest = [
+    input.method,
+    input.url.pathname,
+    input.url.search.slice(1),
+    canonicalHeaders,
+    signedHeaders,
+    UNSIGNED_PAYLOAD,
+  ].join("\n");
+  const stringToSign = [
+    SIGNING_ALGORITHM,
+    amzDate,
+    credentialScope,
+    await sha256Hex(canonicalRequest),
+  ].join("\n");
+  const signingKey = await createSigningKey(config.secretAccessKey, dateStamp);
+  const signature = bytesToHex(await hmacSha256(signingKey, stringToSign));
+  const headers = new Headers();
+
+  headers.set("x-amz-content-sha256", UNSIGNED_PAYLOAD);
+  headers.set("x-amz-date", amzDate);
+
+  if (input.contentType) {
+    headers.set("content-type", input.contentType);
+  }
+
+  headers.set(
+    "authorization",
+    `${SIGNING_ALGORITHM} Credential=${config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+  );
+
+  return headers;
+}
+
+async function fetchR2Object(input: {
+  body?: BodyInit;
+  contentType?: string;
+  method: "DELETE" | "GET" | "HEAD" | "PUT";
+  objectKey: string;
+}) {
+  const url = objectUrl(input.objectKey);
+
+  if (!url) {
+    return null;
+  }
+
+  const headers = await createSignedHeaders({
+    contentType: input.contentType,
+    method: input.method,
+    url,
+  });
+
+  if (!headers) {
+    return null;
+  }
+
+  return fetch(url, {
+    body: input.body,
+    headers,
+    method: input.method,
   });
 }
 
 export async function createR2UploadUrl(input: R2UploadInput) {
-  if (!isR2Configured() || !endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+  if (!isR2Configured() || !bucket) {
     return null;
   }
 
   const objectKey = makeR2ObjectKey(input);
-  const client = createR2Client();
+  const uploadUrl = await createPresignedObjectUrl({
+    expiresIn: 600,
+    method: "PUT",
+    objectKey,
+  });
 
-  if (!client) {
+  if (!uploadUrl) {
     return null;
   }
-
-  const uploadUrl = await getSignedUrl(
-    client,
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: objectKey,
-      ContentType: input.contentType,
-    }),
-    { expiresIn: 600 },
-  );
 
   return {
     bucket,
@@ -152,20 +369,13 @@ export async function createR2UploadUrl(input: R2UploadInput) {
 }
 
 export async function createR2PreviewUrl(objectKey: string) {
-  const client = createR2Client();
+  const previewUrl = await createPresignedObjectUrl({
+    expiresIn: 900,
+    method: "GET",
+    objectKey,
+  });
 
-  if (!client || !bucket) {
-    return getPublicR2Url(objectKey);
-  }
-
-  return getSignedUrl(
-    client,
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: objectKey,
-    }),
-    { expiresIn: 900 },
-  );
+  return previewUrl ?? getPublicR2Url(objectKey);
 }
 
 export async function uploadR2Object(input: R2UploadWithKeyInput) {
@@ -173,22 +383,21 @@ export async function uploadR2Object(input: R2UploadWithKeyInput) {
     return null;
   }
 
-  const client = createR2Client();
+  const objectKey = input.objectKey ?? makeR2ObjectKey(input);
+  const response = await fetchR2Object({
+    body: input.body as BodyInit,
+    contentType: input.contentType,
+    method: "PUT",
+    objectKey,
+  });
 
-  if (!client) {
+  if (!response) {
     return null;
   }
 
-  const objectKey = input.objectKey ?? makeR2ObjectKey(input);
-
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: objectKey,
-      Body: input.body,
-      ContentType: input.contentType,
-    }),
-  );
+  if (!response.ok) {
+    throw new Error(`R2 upload failed with ${response.status}.`);
+  }
 
   return {
     bucket,
@@ -197,80 +406,62 @@ export async function uploadR2Object(input: R2UploadWithKeyInput) {
   };
 }
 
-function getErrorStatus(error: unknown) {
-  if (typeof error !== "object" || error === null || !("$metadata" in error)) {
-    return null;
-  }
-
-  return (
-    (error as { $metadata?: { httpStatusCode?: number } }).$metadata
-      ?.httpStatusCode ?? null
-  );
-}
-
 export async function r2ObjectExists(objectKey: string) {
-  const client = createR2Client();
+  const response = await fetchR2Object({
+    method: "HEAD",
+    objectKey,
+  });
 
-  if (!client || !bucket) {
+  if (!response) {
     return null;
   }
 
-  try {
-    await client.send(
-      new HeadObjectCommand({
-        Bucket: bucket,
-        Key: objectKey,
-      }),
-    );
-
+  if (response.ok) {
     return true;
-  } catch (error) {
-    return getErrorStatus(error) === 404 ? false : null;
   }
+
+  return response.status === 404 ? false : null;
 }
 
 export async function deleteR2Object(objectKey: string) {
-  const client = createR2Client();
+  const response = await fetchR2Object({
+    method: "DELETE",
+    objectKey,
+  });
 
-  if (!client || !bucket) {
+  if (!response) {
     return { deleted: false, missing: false };
   }
 
-  try {
-    await client.send(
-      new DeleteObjectCommand({
-        Bucket: bucket,
-        Key: objectKey,
-      }),
-    );
-
+  if (response.ok) {
     return { deleted: true, missing: false };
-  } catch (error) {
-    if (getErrorStatus(error) === 404) {
-      return { deleted: true, missing: true };
-    }
-
-    return { deleted: false, missing: false };
   }
+
+  if (response.status === 404) {
+    return { deleted: true, missing: true };
+  }
+
+  return { deleted: false, missing: false };
 }
 
 export async function getR2ObjectStream(objectKey: string) {
-  const client = createR2Client();
+  const response = await fetchR2Object({
+    method: "GET",
+    objectKey,
+  });
 
-  if (!client || !bucket) {
+  if (!response?.ok || !response.body) {
     return null;
   }
 
-  const result = await client.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: objectKey,
-    }),
-  );
+  const contentLength = Number(response.headers.get("content-length") ?? 0);
 
   return {
-    body: result.Body,
-    contentLength: result.ContentLength ?? null,
-    contentType: result.ContentType ?? "application/octet-stream",
+    body: response.body,
+    contentLength: Number.isFinite(contentLength) && contentLength > 0
+      ? contentLength
+      : null,
+    contentType:
+      response.headers.get("content-type") ?? "application/octet-stream",
   };
 }

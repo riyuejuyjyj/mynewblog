@@ -46,8 +46,8 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
   - Write a short deploy/runbook note covering env vars, migrations, and rollback.
 
 ## Immediate Next Actions
-1. Add `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as GitHub Repository secrets.
-2. Rerun the `Cloudflare` workflow with `deploy` checked.
+1. Push the R2/AWS SDK bundle reduction patch and rerun the `Cloudflare` workflow with `deploy` checked.
+2. If Cloudflare still rejects the Worker at the Free plan 3 MiB limit, decide between Workers Paid or a second reduction pass that disables/removes server-side music plugin execution.
 3. Verify the first deployed Worker URL, then bind/verify the production domain `https://tong777.ccwu.cc`.
 4. Resume the highest-impact Studio publishing and media blockers after the deployment path is unblocked.
 
@@ -61,6 +61,7 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - `bun run build:cloudflare` reaches OpenNext bundling but fails on Windows symlink creation for traced `node_modules` packages (`EPERM: operation not permitted, symlink ... @aws-sdk/client-s3`). Retrying with elevated permissions produced the same error. Treat this as an environment blocker and rerun from WSL/Linux CI.
 - `bun run lint` initially scanned generated `.open-next/` output after the failed Cloudflare build. Fixed by adding `.open-next/**` and `.wrangler/**` to `eslint.config.mjs` global ignores and `.gitignore`.
 - `bun run check:prod-env` warns locally that `CLOUDFLARE_API_TOKEN` is not set. GitHub deploy requires `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` repository secrets.
+- GitHub Actions Linux build verification passed, but first deploy failed Cloudflare validation because the Worker exceeded the Free plan 3 MiB script size limit. First mitigation: replace app-level AWS SDK R2 usage with a lightweight SigV4/fetch implementation.
 
 ## Open Questions
 1. Which content flow matters first: public blog publishing or Studio admin ergonomics?
@@ -71,4 +72,4 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - Cloudflare build/deploy should run from GitHub Actions/Linux CI first. WSL remains useful for local reproduction, but it is no longer the main release path.
 
 ## Status
-Currently in Phase 2: Cloudflare/OpenNext setup, production readiness documentation, and a manual GitHub Actions workflow are in place. Linux CI build verification passed; next work is to add Cloudflare deploy credentials and rerun the workflow with `deploy` checked.
+Currently in Phase 2: Cloudflare/OpenNext setup, production readiness documentation, and a manual GitHub Actions workflow are in place. Linux CI build verification passed; first deploy exposed a Worker script size blocker, and the current patch removes app-level AWS SDK R2 dependencies before rerunning deploy.
