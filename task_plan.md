@@ -46,8 +46,8 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
   - Write a short deploy/runbook note covering env vars, migrations, and rollback.
 
 ## Immediate Next Actions
-1. Push the R2/AWS SDK bundle reduction patch and rerun the `Cloudflare` workflow with `deploy` checked.
-2. If Cloudflare still rejects the Worker at the Free plan 3 MiB limit, decide between Workers Paid or a second reduction pass that disables/removes server-side music plugin execution.
+1. Push the server-side music plugin/LX script reduction patch and rerun the `Cloudflare` workflow with `deploy` checked.
+2. If Cloudflare still rejects the Worker at the Free plan 3 MiB limit, treat Workers Paid as the likely deployment requirement for this Next/OpenNext SSR app.
 3. Verify the first deployed Worker URL, then bind/verify the production domain `https://tong777.ccwu.cc`.
 4. Resume the highest-impact Studio publishing and media blockers after the deployment path is unblocked.
 
@@ -62,6 +62,7 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - `bun run lint` initially scanned generated `.open-next/` output after the failed Cloudflare build. Fixed by adding `.open-next/**` and `.wrangler/**` to `eslint.config.mjs` global ignores and `.gitignore`.
 - `bun run check:prod-env` warns locally that `CLOUDFLARE_API_TOKEN` is not set. GitHub deploy requires `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` repository secrets.
 - GitHub Actions Linux build verification passed, but first deploy failed Cloudflare validation because the Worker exceeded the Free plan 3 MiB script size limit. First mitigation: replace app-level AWS SDK R2 usage with a lightweight SigV4/fetch implementation.
+- Second mitigation: disable server-side MusicFree plugin and LX/local source script execution for the Cloudflare production bundle and remove heavy plugin runtime dependencies.
 
 ## Open Questions
 1. Which content flow matters first: public blog publishing or Studio admin ergonomics?
@@ -72,4 +73,4 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - Cloudflare build/deploy should run from GitHub Actions/Linux CI first. WSL remains useful for local reproduction, but it is no longer the main release path.
 
 ## Status
-Currently in Phase 2: Cloudflare/OpenNext setup, production readiness documentation, and a manual GitHub Actions workflow are in place. Linux CI build verification passed; first deploy exposed a Worker script size blocker, and the current patch removes app-level AWS SDK R2 dependencies before rerunning deploy.
+Currently in Phase 2: Cloudflare/OpenNext setup, production readiness documentation, and a manual GitHub Actions workflow are in place. Linux CI build verification passed; deploy exposed a Worker script size blocker, and the current patch removes heavy server-side music plugin execution before rerunning deploy.

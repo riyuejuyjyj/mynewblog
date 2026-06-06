@@ -138,6 +138,15 @@ bun run db:migrate
 - Deletion only removes the R2 object when the stored bucket matches the current configured bucket.
 - `wrangler.jsonc` intentionally does not add a Worker R2 bucket binding yet, because the app currently uses the S3 client path.
 
+## Music Deployment Mode
+
+Music remains bugfix-only for production launch.
+
+- Server-side remote MusicFree plugin execution is disabled in the Cloudflare bundle to reduce Worker size.
+- Server-side LX/local source script execution is disabled in the Cloudflare bundle because it depends on local files and `node:vm`.
+- Existing manual tracks and stored/downloaded audio URLs can still be used.
+- Search/resolve endpoints for remote music plugins return empty results or a clear disabled error.
+
 ## Cloudflare Checklist
 
 - `@opennextjs/cloudflare` and `wrangler` are devDependencies.
@@ -187,6 +196,7 @@ After `preview:cloudflare` or deploy:
   - Cloudflare reported `.open-next/server-functions/default/handler.mjs` at about 16 MiB.
   - Cloudflare Workers Paid raises the Worker size limit to 10 MiB, but the app should still be slimmed before relying on that.
   - First reduction pass removed app-level AWS SDK R2 dependencies and replaced them with lightweight SigV4/fetch signing.
+  - Second reduction pass disabled server-side music plugin/LX script execution and removed the corresponding heavy runtime dependencies.
 - Cloudflare build reaches the OpenNext bundling stage on Windows, but currently fails on symlink creation:
   - `EPERM: operation not permitted, symlink ... node_modules/@aws-sdk/client-s3`
   - Retrying with elevated permissions produced the same error.

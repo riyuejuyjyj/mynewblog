@@ -1,7 +1,6 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { readFile, stat } from "node:fs/promises";
 
 import { hasDatabase } from "@/db";
 import {
@@ -23,6 +22,7 @@ import {
   getMusicPluginDefinitions,
   type MusicPluginDefinition,
   type MusicPluginProvider,
+  type MusicPluginResolveResult,
   resolveMusicPlugin,
   type MusicSearchCandidate,
   resolveMusicPluginLyricWithFallback,
@@ -669,33 +669,13 @@ async function fetchChangqingManifest() {
   }
 }
 
-async function readSafeSourceFile(sourcePath: string) {
-  const trimmedPath = sourcePath.trim();
+async function readSafeSourceFile(sourcePath: string): Promise<string> {
+  void sourcePath;
 
-  if (!trimmedPath.toLowerCase().endsWith(".js")) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "音源配置只接受 .js 文件。",
-    });
-  }
-
-  const sourceStat = await stat(trimmedPath).catch(() => null);
-
-  if (!sourceStat?.isFile()) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "找不到这个音源脚本，请检查本地路径。",
-    });
-  }
-
-  if (sourceStat.size > MAX_SOURCE_CODE_BYTES) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "音源脚本超过 512KB，已停止导入。",
-    });
-  }
-
-  return readFile(trimmedPath, "utf8");
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message: "Cloudflare 生产包已禁用本地音源脚本导入。",
+  });
 }
 
 function providerFilter(provider: z.infer<typeof sourceProviderSchema>) {
@@ -828,6 +808,20 @@ async function resolveDownloadAudio(
       provider: pluginProvider.data,
       quality: input.quality,
       songId: input.sourceSongId,
+    }).catch((error: unknown) => {
+      if (!input.audioUrl.trim()) {
+        throw error;
+      }
+
+      return {
+        audioUrl: input.audioUrl.trim(),
+        lyric: input.lyric,
+        source: pluginProvider.data,
+        title: input.title,
+        warnings: [
+          "服务端插件解析已禁用，已使用记录中的音频 URL。",
+        ],
+      } satisfies MusicPluginResolveResult;
     });
 
     return {
