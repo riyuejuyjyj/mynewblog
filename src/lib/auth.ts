@@ -16,8 +16,19 @@ const memoryDb = {
 const DEFAULT_AUTH_ALLOWED_HOSTS = [
   "tong777.ccwu.cc",
   "mynewblog.2556419331.workers.dev",
-  "localhost:3000",
-  "127.0.0.1:3000",
+  "localhost:*",
+  "*.localhost:*",
+  "127.0.0.1:*",
+  "[::1]:*",
+];
+
+const DEFAULT_AUTH_TRUSTED_ORIGINS = [
+  "https://tong777.ccwu.cc",
+  "https://mynewblog.2556419331.workers.dev",
+  "http://localhost:*",
+  "http://*.localhost:*",
+  "http://127.0.0.1:*",
+  "http://[::1]:*",
 ];
 
 function splitCsv(value: string | undefined) {
@@ -33,11 +44,31 @@ function toAllowedHost(value: string | undefined) {
   const trimmed = value?.trim().replace(/\/+$/g, "");
 
   if (!trimmed) return "";
+  if (trimmed.includes("*") || trimmed.includes("?")) {
+    return trimmed.replace(/^https?:\/\//, "").split("/")[0] ?? "";
+  }
 
   try {
-    return new URL(trimmed).host;
+    const host = new URL(trimmed).host;
+
+    return host || trimmed.replace(/^https?:\/\//, "").split("/")[0] || "";
   } catch {
     return trimmed.replace(/^https?:\/\//, "").split("/")[0] ?? "";
+  }
+}
+
+function toTrustedOrigin(value: string | undefined) {
+  const trimmed = value?.trim().replace(/\/+$/g, "");
+
+  if (!trimmed) return "";
+  if (trimmed.includes("*") || trimmed.includes("?")) return trimmed;
+
+  try {
+    const origin = new URL(trimmed).origin;
+
+    return origin === "null" ? trimmed : origin;
+  } catch {
+    return trimmed;
   }
 }
 
@@ -51,6 +82,21 @@ function getAuthAllowedHosts() {
         ...splitCsv(process.env.BETTER_AUTH_TRUSTED_ORIGINS),
       ]
         .map(toAllowedHost)
+        .filter(Boolean),
+    ),
+  );
+}
+
+function getAuthTrustedOrigins() {
+  return Array.from(
+    new Set(
+      [
+        ...DEFAULT_AUTH_TRUSTED_ORIGINS,
+        process.env.BETTER_AUTH_URL,
+        process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
+        ...splitCsv(process.env.BETTER_AUTH_TRUSTED_ORIGINS),
+      ]
+        .map(toTrustedOrigin)
         .filter(Boolean),
     ),
   );
@@ -129,8 +175,9 @@ export const auth = betterAuth({
   baseURL: {
     allowedHosts: getAuthAllowedHosts(),
     fallback: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
-    protocol: process.env.NODE_ENV === "production" ? "https" : undefined,
+    protocol: process.env.NODE_ENV === "production" ? "https" : "http",
   },
+  trustedOrigins: getAuthTrustedOrigins(),
   logger: {
     level: process.env.NODE_ENV === "production" ? "error" : "warn",
     log: logBetterAuth,
