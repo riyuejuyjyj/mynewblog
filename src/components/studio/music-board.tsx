@@ -589,6 +589,50 @@ function buildDownloadName(title: string, extension: string) {
   return `${cleanTitle || "music"}.${extension}`;
 }
 
+function buildStoredDownloadUrl(
+  download: StudioMusicDownload,
+  mode: "download" | "stream",
+) {
+  const params = new URLSearchParams({ id: download.id });
+
+  if (mode === "stream") {
+    params.set("mode", "stream");
+  }
+
+  return `/api/music/download?${params.toString()}`;
+}
+
+function getStoredDownloadPlaybackUrl(download: StudioMusicDownload) {
+  if (canUseStoredDownload(download)) {
+    return buildStoredDownloadUrl(download, "stream");
+  }
+
+  return download.audioUrl;
+}
+
+function canUseStoredDownload(download: StudioMusicDownload) {
+  return (
+    download.storageStatus === "ready" ||
+    Boolean(download.audioObjectKey && download.storageStatus !== "missing")
+  );
+}
+
+function triggerStoredDownloadFile(download: StudioMusicDownload) {
+  if (typeof document === "undefined") return;
+
+  const anchor = document.createElement("a");
+  anchor.href = buildStoredDownloadUrl(download, "download");
+  anchor.download = buildDownloadName(
+    download.title,
+    inferAudioExtension(download.audioUrl),
+  );
+  anchor.rel = "noopener";
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
 function isMusicDownloadItem(
   item: StudioMusicDownload | StudioMusicLibraryItem,
 ): item is StudioMusicDownload {
@@ -813,7 +857,7 @@ function shouldTryCandidateFallback(error: unknown) {
 function shouldRetryDownloadWithFallback(
   result: StudioPrepareMusicDownloadResult,
 ) {
-  if (result.download.storageStatus !== "ready") return true;
+  if (!canUseStoredDownload(result.download)) return true;
 
   return result.warnings.some((warning) =>
     warning.includes("音频保存到 R2 失败"),
@@ -1658,11 +1702,12 @@ export function MusicBoard({
   async function resolvePlayableUrl(track: StudioMusicTrack) {
     const storedDownload = downloadsByItemKey.get(getTrackLikeKey(track));
 
-    if (
-      storedDownload?.audioUrl &&
-      storedDownload.storageStatus !== "missing"
-    ) {
-      return storedDownload.audioUrl;
+    if (storedDownload && canUseStoredDownload(storedDownload)) {
+      const storedAudioUrl = getStoredDownloadPlaybackUrl(storedDownload);
+
+      if (storedAudioUrl) {
+        return storedAudioUrl;
+      }
     }
 
     if (track.provider === "manual" && track.audioUrl) {
@@ -1709,16 +1754,17 @@ export function MusicBoard({
       throw new Error("这个远程搜索源已停用，请重新搜索或启用对应音源。");
     }
 
-    if (
-      storedDownload?.audioUrl &&
-      storedDownload.storageStatus !== "missing"
-    ) {
-      setCandidateLyrics((current) => ({
-        ...current,
-        [cacheKey]: storedDownload.lyric,
-      }));
+    if (storedDownload && canUseStoredDownload(storedDownload)) {
+      const storedAudioUrl = getStoredDownloadPlaybackUrl(storedDownload);
 
-      return storedDownload.audioUrl;
+      if (storedAudioUrl) {
+        setCandidateLyrics((current) => ({
+          ...current,
+          [cacheKey]: storedDownload.lyric,
+        }));
+
+        return storedAudioUrl;
+      }
     }
 
     if (resolvedUrls[cacheKey]) {
@@ -1867,7 +1913,15 @@ export function MusicBoard({
       await audio.play();
       if (requestId !== playRequestIdRef.current) return;
       setIsPlaying(true);
-      onRecordPlay(trackToLibraryItem(track, audioUrl));
+      {
+        const storedDownload = downloadsByItemKey.get(getTrackLikeKey(track));
+        const recordAudioUrl =
+          storedDownload && canUseStoredDownload(storedDownload)
+            ? storedDownload.audioUrl
+            : audioUrl;
+
+        onRecordPlay(trackToLibraryItem(track, recordAudioUrl || audioUrl));
+      }
       recordPlaybackEvent({
         detail: audioUrl.includes("r2.cloudflarestorage.com")
           ? "音频地址来自 R2 或 R2 兼容域名。"
@@ -1957,13 +2011,21 @@ export function MusicBoard({
       await audio.play();
       if (requestId !== playRequestIdRef.current) return false;
       setIsPlaying(true);
-      onRecordPlay(
-        candidateToLibraryItem(
-          candidate,
-          audioUrl,
-          candidateLyrics[cacheKey] ?? "",
-        ),
-      );
+      {
+        const storedDownload = downloadsByItemKey.get(cacheKey);
+        const recordAudioUrl =
+          storedDownload && canUseStoredDownload(storedDownload)
+            ? storedDownload.audioUrl
+            : audioUrl;
+
+        onRecordPlay(
+          candidateToLibraryItem(
+            candidate,
+            recordAudioUrl || audioUrl,
+            candidateLyrics[cacheKey] ?? "",
+          ),
+        );
+      }
       updateRuntimeSourceHealth(candidate.source, -18, "播放成功");
       recordPlaybackEvent({
         detail: `${pluginProviderLabels[candidate.source]} 已解析并开始播放。`,
@@ -2513,10 +2575,12 @@ export function MusicBoard({
       quiet?: boolean;
       attemptedKeys?: Set<string>;
       allowFallback?: boolean;
+      downloadFile?: boolean;
     } = {},
   ) {
     const attemptedKeys = new Set(options.attemptedKeys ?? []);
     const allowFallback = options.allowFallback ?? Boolean(candidate);
+    const downloadFile = options.downloadFile ?? false;
     const quiet = options.quiet ?? false;
 
     if (candidate) {
@@ -2541,20 +2605,26 @@ export function MusicBoard({
         ...item,
         candidate,
       });
+      const playbackUrl =
+        getStoredDownloadPlaybackUrl(result.download) || result.download.audioUrl;
 
       if (item.itemKind === "track" && item.trackId) {
         setResolvedUrls((current) => ({
           ...current,
-          [item.trackId!]: result.download.audioUrl,
+          [item.trackId!]: playbackUrl,
         }));
       } else {
         setResolvedUrls((current) => ({
           ...current,
-          [item.itemKey]: result.download.audioUrl,
+          [item.itemKey]: playbackUrl,
         }));
       }
 
       markStoredDownload(result.download);
+
+      if (downloadFile) {
+        triggerStoredDownloadFile(result.download);
+      }
 
       if (result.warnings.length > 0) {
         setDownloadMessage(
@@ -2571,13 +2641,16 @@ export function MusicBoard({
           const fallbackKey = getCandidateLikeKey(fallback);
           const storedFallback = downloadsByItemKey.get(fallbackKey);
 
-          if (storedFallback?.storageStatus === "ready") {
+          if (storedFallback && canUseStoredDownload(storedFallback)) {
             setDownloadMessage(
               `当前源未完整写入 R2，已切换到 ${
                 pluginProviderLabels[fallback.source]
               } 的云端版本。`,
             );
             markStoredDownload(storedFallback);
+            if (downloadFile) {
+              triggerStoredDownloadFile(storedFallback);
+            }
             return {
               download: storedFallback,
               warnings: [],
@@ -2599,6 +2672,7 @@ export function MusicBoard({
             {
               allowFallback,
               attemptedKeys,
+              downloadFile,
               quiet,
             },
           );
@@ -2629,6 +2703,7 @@ export function MusicBoard({
             {
               allowFallback,
               attemptedKeys,
+              downloadFile,
               quiet,
             },
           );
@@ -2653,13 +2728,16 @@ export function MusicBoard({
   async function downloadTrack(track: StudioMusicTrack) {
     const storedDownload = downloadsByItemKey.get(getTrackLikeKey(track));
 
-    if (storedDownload?.storageStatus === "ready") {
+    if (storedDownload && canUseStoredDownload(storedDownload)) {
       markStoredDownload(storedDownload);
+      triggerStoredDownloadFile(storedDownload);
       return;
     }
 
     await prepareAndDownload(
       trackToLibraryItem(track, resolvedUrls[track.id] ?? track.audioUrl),
+      undefined,
+      { downloadFile: true },
     );
   }
 
@@ -2675,8 +2753,9 @@ export function MusicBoard({
     const cacheKey = getCandidateLikeKey(candidate);
     const storedDownload = downloadsByItemKey.get(cacheKey);
 
-    if (storedDownload?.storageStatus === "ready") {
+    if (storedDownload && canUseStoredDownload(storedDownload)) {
       markStoredDownload(storedDownload);
+      triggerStoredDownloadFile(storedDownload);
       return;
     }
 
@@ -2687,6 +2766,7 @@ export function MusicBoard({
         candidateLyrics[cacheKey] ?? "",
       ),
       candidate,
+      { downloadFile: true },
     );
   }
 
@@ -3035,10 +3115,13 @@ export function MusicBoard({
       setDownloadMessage("");
 
       try {
-        if (item.storageStatus === "ready") {
+        if (canUseStoredDownload(item)) {
           markStoredDownload(item);
+          triggerStoredDownloadFile(item);
         } else {
-          await prepareAndDownload(item, libraryItemToCandidate(item) ?? undefined);
+          await prepareAndDownload(item, libraryItemToCandidate(item) ?? undefined, {
+            downloadFile: true,
+          });
         }
       } catch (error) {
         setDownloadProgress((current) =>
@@ -3069,11 +3152,11 @@ export function MusicBoard({
     const candidate = libraryItemToCandidate(item);
 
     if (candidate) {
-      await prepareAndDownload(item, candidate);
+      await prepareAndDownload(item, candidate, { downloadFile: true });
       return;
     }
 
-    await prepareAndDownload(item);
+    await prepareAndDownload(item, undefined, { downloadFile: true });
   }
 
   async function repairDownloadLibrary() {
@@ -3331,9 +3414,11 @@ export function MusicBoard({
 
     try {
       const status = await onCheckChangqingVersion();
-      const message = status.updateAvailable
-        ? `长青源有更新：本地 ${status.localVersion || "未导入"} / 远端 ${status.remoteVersion}`
-        : `长青源已是最新：${status.localVersion || status.remoteVersion || "未知版本"}`;
+      const message = status.error
+        ? `长青源远端检查失败：${status.error}`
+        : status.updateAvailable
+          ? `长青源有更新：本地 ${status.localVersion || "未导入"} / 远端 ${status.remoteVersion}`
+          : `长青源已是最新：${status.localVersion || status.remoteVersion || "未知版本"}`;
 
       setDownloadMessage(message);
     } catch (error) {

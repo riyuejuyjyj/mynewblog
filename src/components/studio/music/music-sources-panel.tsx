@@ -200,14 +200,18 @@ export function MusicSourcesPanel({
           {sourceVersionStatus ? (
             <Badge
               className={
-                sourceVersionStatus.updateAvailable
-                  ? "border-coral-200 bg-coral-50 text-coral-700 dark:border-coral-300/30 dark:bg-coral-400/12 dark:text-coral-100"
-                  : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-300/30 dark:bg-sky-400/12 dark:text-sky-100"
+                sourceVersionStatus.error
+                  ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-300/30 dark:bg-amber-400/12 dark:text-amber-100"
+                  : sourceVersionStatus.updateAvailable
+                    ? "border-coral-200 bg-coral-50 text-coral-700 dark:border-coral-300/30 dark:bg-coral-400/12 dark:text-coral-100"
+                    : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-300/30 dark:bg-sky-400/12 dark:text-sky-100"
               }
             >
-              {sourceVersionStatus.updateAvailable
-                ? "发现新版"
-                : `v${sourceVersionStatus.remoteVersion || changqingSource?.version || "?"}`}
+              {sourceVersionStatus.error
+                ? "远端检查失败"
+                : sourceVersionStatus.updateAvailable
+                  ? "发现新版"
+                  : `v${sourceVersionStatus.remoteVersion || changqingSource?.version || "?"}`}
             </Badge>
           ) : null}
           <Button
@@ -238,6 +242,11 @@ export function MusicSourcesPanel({
             </p>
             {sourceVersionStatus.description ? (
               <p className="mt-1">{sourceVersionStatus.description}</p>
+            ) : null}
+            {sourceVersionStatus.error ? (
+              <p className="mt-1 text-amber-600 dark:text-amber-200">
+                {sourceVersionStatus.error}
+              </p>
             ) : null}
             {sourceVersionStatus.updateUrl ? (
               <a

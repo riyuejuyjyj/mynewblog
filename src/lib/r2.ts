@@ -317,6 +317,7 @@ async function createSignedHeaders(input: {
 async function fetchR2Object(input: {
   body?: BodyInit;
   contentType?: string;
+  headers?: HeadersInit;
   method: "DELETE" | "GET" | "HEAD" | "PUT";
   objectKey: string;
 }) {
@@ -334,6 +335,12 @@ async function fetchR2Object(input: {
 
   if (!headers) {
     return null;
+  }
+
+  if (input.headers) {
+    for (const [key, value] of new Headers(input.headers)) {
+      headers.set(key, value);
+    }
   }
 
   return fetch(url, {
@@ -444,8 +451,12 @@ export async function deleteR2Object(objectKey: string) {
   return { deleted: false, missing: false };
 }
 
-export async function getR2ObjectStream(objectKey: string) {
+export async function getR2ObjectStream(
+  objectKey: string,
+  options: { range?: string | null } = {},
+) {
   const response = await fetchR2Object({
+    headers: options.range ? { Range: options.range } : undefined,
     method: "GET",
     objectKey,
   });
@@ -458,10 +469,12 @@ export async function getR2ObjectStream(objectKey: string) {
 
   return {
     body: response.body,
+    contentRange: response.headers.get("content-range"),
     contentLength: Number.isFinite(contentLength) && contentLength > 0
       ? contentLength
       : null,
     contentType:
       response.headers.get("content-type") ?? "application/octet-stream",
+    status: response.status,
   };
 }

@@ -55,6 +55,13 @@ function clean(value) {
   return trimmed ? trimmed : "";
 }
 
+function splitCsv(value) {
+  return clean(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function isPlaceholder(value) {
   const normalized = clean(value).toLowerCase();
 
@@ -118,12 +125,8 @@ const betterAuthUrl = addRequired(
   "BETTER_AUTH_URL",
   "server-side public app URL",
 );
-const publicBetterAuthUrl = addRequired(
-  checks,
-  env,
-  "NEXT_PUBLIC_BETTER_AUTH_URL",
-  "client-side public app URL baked into the build",
-);
+const publicBetterAuthUrl = clean(env.NEXT_PUBLIC_BETTER_AUTH_URL);
+const betterAuthTrustedOrigins = splitCsv(env.BETTER_AUTH_TRUSTED_ORIGINS);
 addRequired(checks, env, "R2_BUCKET", "R2 bucket name");
 const r2AccessKey = addRequired(checks, env, "R2_ACCESS_KEY_ID", "R2 S3 access key");
 const r2Secret = addRequired(
@@ -170,19 +173,22 @@ if (betterAuthUrl && !isUrl(betterAuthUrl)) {
   checks.fail.push("BETTER_AUTH_URL: must be an http(s) URL");
 }
 
-if (publicBetterAuthUrl && !isUrl(publicBetterAuthUrl)) {
-  checks.fail.push("NEXT_PUBLIC_BETTER_AUTH_URL: must be an http(s) URL");
+if (publicBetterAuthUrl) {
+  if (!isUrl(publicBetterAuthUrl)) {
+    checks.fail.push("NEXT_PUBLIC_BETTER_AUTH_URL: must be an http(s) URL when set");
+  } else {
+    checks.pass.push("NEXT_PUBLIC_BETTER_AUTH_URL: optional fallback present");
+  }
 }
 
-if (
-  betterAuthUrl &&
-  publicBetterAuthUrl &&
-  clean(betterAuthUrl).replace(/\/+$/g, "") !==
-    clean(publicBetterAuthUrl).replace(/\/+$/g, "")
-) {
-  checks.warn.push(
-    "BETTER_AUTH_URL and NEXT_PUBLIC_BETTER_AUTH_URL differ; verify cookies and tRPC base URLs",
-  );
+for (const origin of betterAuthTrustedOrigins) {
+  if (!isUrl(origin)) {
+    checks.fail.push(`BETTER_AUTH_TRUSTED_ORIGINS: ${origin} must be an http(s) URL`);
+  }
+}
+
+if (betterAuthTrustedOrigins.length > 0) {
+  checks.pass.push("BETTER_AUTH_TRUSTED_ORIGINS: optional extra origins present");
 }
 
 if (betterAuthUrl.includes("localhost") || publicBetterAuthUrl.includes("localhost")) {

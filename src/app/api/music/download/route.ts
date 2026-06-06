@@ -54,6 +54,28 @@ function buildFileName(title: string, audioUrl: string) {
   return `${cleanTitle || "music"}.${inferExtension(audioUrl)}`;
 }
 
+function getRequestRange(request: NextRequest) {
+  const range = request.headers.get("range")?.trim();
+
+  if (!range || !/^bytes=\d*-\d*(?:,\d*-\d*)?$/.test(range)) {
+    return null;
+  }
+
+  return range;
+}
+
+function copyOptionalHeader(
+  target: Headers,
+  source: Headers,
+  key: "accept-ranges" | "content-length" | "content-range" | "content-type",
+) {
+  const value = source.get(key);
+
+  if (value) {
+    target.set(key, value);
+  }
+}
+
 function toWebReadableStream(body: unknown) {
   if (!body) {
     return null;
@@ -132,25 +154,42 @@ export async function GET(request: NextRequest) {
     return jsonError("Download record was not found.", 404);
   }
 
+  const streamMode = request.nextUrl.searchParams.get("mode") === "stream";
+  const range = streamMode ? getRequestRange(request) : null;
   const fileName = buildFileName(download.title, download.audioUrl);
   const asciiFileName = buildAsciiFileName(fileName);
   const headers = new Headers({
     "Cache-Control": "no-store",
-    "Content-Disposition": `attachment; filename="${asciiFileName.replace(/"/g, "'")}"; filename*=UTF-8''${encodeFileName(fileName)}`,
   });
 
+  if (streamMode) {
+    headers.set("Accept-Ranges", "bytes");
+  } else {
+    headers.set(
+      "Content-Disposition",
+      `attachment; filename="${asciiFileName.replace(/"/g, "'")}"; filename*=UTF-8''${encodeFileName(fileName)}`,
+    );
+  }
+
   if (download.audioObjectKey) {
-    const r2Object = await getR2ObjectStream(download.audioObjectKey);
+    const r2Object = await getR2ObjectStream(download.audioObjectKey, { range });
     const stream = toWebReadableStream(r2Object?.body);
 
     if (r2Object && stream) {
       headers.set("Content-Type", r2Object.contentType);
 
+      if (r2Object.contentRange) {
+        headers.set("Content-Range", r2Object.contentRange);
+      }
+
       if (r2Object.contentLength !== null) {
         headers.set("Content-Length", String(r2Object.contentLength));
       }
 
-      return new Response(stream, { headers });
+      return new Response(stream, {
+        headers,
+        status: streamMode && r2Object.status === 206 ? 206 : 200,
+      });
     }
   }
 
@@ -158,20 +197,26 @@ export async function GET(request: NextRequest) {
     return jsonError("This download does not have an audio URL.", 404);
   }
 
-  const upstream = await fetch(download.audioUrl, { cache: "no-store" });
+  const upstream = await fetch(download.audioUrl, {
+    cache: "no-store",
+    headers: range ? { Range: range } : undefined,
+  });
 
   if (!upstream.ok || !upstream.body) {
     return jsonError("Audio source is not available.", 502);
   }
 
-  const contentType = upstream.headers.get("content-type");
-  const contentLength = upstream.headers.get("content-length");
+  copyOptionalHeader(headers, upstream.headers, "accept-ranges");
+  copyOptionalHeader(headers, upstream.headers, "content-range");
+  copyOptionalHeader(headers, upstream.headers, "content-type");
+  copyOptionalHeader(headers, upstream.headers, "content-length");
 
-  headers.set("Content-Type", contentType || "application/octet-stream");
-
-  if (contentLength) {
-    headers.set("Content-Length", contentLength);
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/octet-stream");
   }
 
-  return new Response(upstream.body, { headers });
+  return new Response(upstream.body, {
+    headers,
+    status: streamMode && upstream.status === 206 ? 206 : 200,
+  });
 }

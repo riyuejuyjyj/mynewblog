@@ -2,6 +2,8 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "mynewblog",
   "main": ".open-next/worker.js",
+  "workers_dev": true,
+  "preview_urls": true,
   "compatibility_date": "2026-06-06",
   "compatibility_flags": [
     "nodejs_compat",
@@ -11,6 +13,14 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  // Enable after the Cloudflare API token can read and edit Worker routes
+  // on the `tong777.ccwu.cc` zone.
+  // "routes": [
+  //   {
+  //     "pattern": "tong777.ccwu.cc/*",
+  //     "zone_name": "tong777.ccwu.cc"
+  //   }
+  // ],
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",

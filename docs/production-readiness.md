@@ -8,6 +8,7 @@ Why:
 - The app is not a static export: it uses route handlers, tRPC, Better Auth, Neon, and R2 writes.
 - Next.js 16 supports adapters, but Cloudflare is still provider-specific rather than the plain `next start` path.
 - OpenNext produces the Worker bundle in `.open-next/worker.js` and assets in `.open-next/assets`.
+- Cloudflare scripts force `next build --webpack` before OpenNext because the Windows/Turbopack OpenNext output can deploy a Worker that fails to load server chunks at runtime.
 
 References:
 - OpenNext Cloudflare: https://opennext.js.org/cloudflare/get-started
@@ -34,8 +35,9 @@ Do not commit real values. Set them in local `.env` for development and in Cloud
 | --- | --- | --- |
 | `DATABASE_URL` | yes | Neon Postgres URL. Prefer `sslmode=require`. |
 | `BETTER_AUTH_SECRET` | yes | Long random secret, at least 32 characters. |
-| `BETTER_AUTH_URL` | yes | Production origin: `https://tong777.ccwu.cc`. |
-| `NEXT_PUBLIC_BETTER_AUTH_URL` | yes | Same production origin: `https://tong777.ccwu.cc`; this is baked into the client bundle at build time. |
+| `BETTER_AUTH_URL` | yes | Canonical production origin: `https://tong777.ccwu.cc`. |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | optional | Comma-separated extra auth origins for temporary preview domains. The current Worker URL is already allowlisted in code. |
+| `NEXT_PUBLIC_BETTER_AUTH_URL` | optional | Legacy fallback only; browser auth requests use the current same-origin host. |
 | `STUDIO_INVITE_CODE` | yes | Private Studio gate code. |
 | `R2_ACCOUNT_ID` | yes unless `R2_ENDPOINT` is set | Used to derive the R2 S3 endpoint. |
 | `R2_ENDPOINT` | optional | Explicit R2 S3 endpoint override. |
@@ -65,6 +67,10 @@ The workflow pins Bun to `1.2.21`, matching the current local toolchain.
 
 Use it from GitHub:
 
+Pushes to `main` or `master` run verification and deploy automatically.
+
+For manual runs:
+
 1. Open Actions -> Cloudflare.
 2. Run workflow.
 3. Leave `deploy` unchecked for a build-only Linux CI verification.
@@ -84,11 +90,11 @@ Required GitHub Secrets:
 | `R2_BUCKET` | R2 bucket name. |
 | `R2_PUBLIC_BASE_URL` | Public/custom R2 media base URL. |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account for Wrangler. |
-| `CLOUDFLARE_API_TOKEN` | Required only when `deploy` is checked. |
+| `CLOUDFLARE_API_TOKEN` | Required for automatic push deploys and manual deploy runs. |
 
-The workflow hardcodes the production origin as `https://tong777.ccwu.cc` for both `BETTER_AUTH_URL` and `NEXT_PUBLIC_BETTER_AUTH_URL`.
+The workflow hardcodes the canonical production origin as `https://tong777.ccwu.cc` for `BETTER_AUTH_URL`. Browser auth calls resolve against the current same-origin host at runtime, which prevents `workers.dev` from calling `tong777.ccwu.cc` as a cross-origin auth API.
 
-When `deploy` is checked, the workflow writes the app runtime secrets into a temporary `.cloudflare-secrets.json` file and deploys with:
+On push, or when manual `deploy` is checked, the workflow writes the app runtime secrets into a temporary `.cloudflare-secrets.json` file and deploys with:
 
 ```bash
 bunx wrangler deploy --secrets-file .cloudflare-secrets.json
@@ -123,8 +129,9 @@ bun run db:migrate
 
 ## Auth Checklist
 
-- `BETTER_AUTH_URL` and `NEXT_PUBLIC_BETTER_AUTH_URL` must match the deployed origin.
-- `NEXT_PUBLIC_BETTER_AUTH_URL` is build-time public config; rebuild when changing it.
+- `BETTER_AUTH_URL` should point to the canonical production origin.
+- Better Auth uses dynamic allowed hosts for `tong777.ccwu.cc`, `mynewblog.2556419331.workers.dev`, and local development hosts.
+- Add extra preview origins to `BETTER_AUTH_TRUSTED_ORIGINS` when testing from additional hostnames.
 - `BETTER_AUTH_SECRET` must not use the development fallback.
 - Studio access requires both Better Auth session and invite cookie.
 
@@ -156,8 +163,9 @@ Music remains bugfix-only for production launch.
   - `nodejs_compat`
   - `global_fetch_strictly_public`
   - `WORKER_SELF_REFERENCE` service binding
-- Build-time public variables must be present before running `bun run build:cloudflare`:
-  - `NEXT_PUBLIC_BETTER_AUTH_URL`
+  - `workers_dev = true`
+  - `preview_urls = true`
+  - `routes` for `tong777.ccwu.cc/*` are intentionally commented until the Cloudflare API token can read and edit Worker routes on the `tong777.ccwu.cc` zone.
 
 - GitHub Actions deploy syncs runtime secrets from GitHub Secrets with `wrangler deploy --secrets-file`.
 - If deploying manually outside GitHub Actions, set Cloudflare runtime secrets first. At minimum:
@@ -176,6 +184,8 @@ wrangler secret put R2_PUBLIC_BASE_URL
 
 If `R2_ENDPOINT` is used instead of `R2_ACCOUNT_ID`, set that secret too.
 
+If deploying to an additional preview hostname, set `BETTER_AUTH_TRUSTED_ORIGINS` to a comma-separated list of those full origins before deploy.
+
 ## First Smoke Test List
 
 After `preview:cloudflare` or deploy:
@@ -186,6 +196,7 @@ After `preview:cloudflare` or deploy:
 - Auth login/session survives refresh.
 - Post list and post detail pages read from Neon.
 - R2 media upload creates an object and records it in Neon.
+- Downloaded music streams through the same-origin `/api/music/download?mode=stream` route and file downloads use `/api/music/download?id=...`.
 - Public comments submit and Studio comments list/moderation works.
 - Music page loads in background mode but remains bugfix-only.
 
@@ -197,13 +208,10 @@ After `preview:cloudflare` or deploy:
   - Cloudflare Workers Paid raises the Worker size limit to 10 MiB, but the app should still be slimmed before relying on that.
   - First reduction pass removed app-level AWS SDK R2 dependencies and replaced them with lightweight SigV4/fetch signing.
   - Second reduction pass disabled server-side music plugin/LX script execution and removed the corresponding heavy runtime dependencies.
-- Cloudflare build reaches the OpenNext bundling stage on Windows, but currently fails on symlink creation:
-  - `EPERM: operation not permitted, symlink ... node_modules/@aws-sdk/client-s3`
-  - Retrying with elevated permissions produced the same error.
-  - OpenNext also warns that Windows is not fully supported.
-  - Next action: run the GitHub Actions `Cloudflare` workflow on Linux CI.
-- Cloudflare preview/deploy has not been run yet because Worker bundle generation is blocked on Windows symlink handling and the Linux CI workflow still needs its first run.
-- `NEXT_PUBLIC_BETTER_AUTH_URL` being build-time config means CI/CD must build with the final production origin.
+- OpenNext warns that Windows is not fully supported.
+- A local Windows/Turbopack deploy uploaded successfully but returned live `ChunkLoadError` for a missing server chunk; keep Cloudflare scripts on `next build --webpack`.
+- `tong777.ccwu.cc` exists as its own active Cloudflare zone in this account. The route must use `zone_name = "tong777.ccwu.cc"`, not `ccwu.cc`.
+- The current API token can see the `tong777.ccwu.cc` zone but receives `403 Authentication error` for `/zones/<zone_id>/workers/routes`. Add Zone -> Workers Routes read/edit permission for that zone, then enable the commented route in `wrangler.jsonc`.
 
 ## Current Verification Notes
 
@@ -212,5 +220,6 @@ After `preview:cloudflare` or deploy:
 - `bunx tsc --noEmit` passes.
 - `bun run lint` passes.
 - `bun run build` passes.
-- `bun run build:cloudflare` currently fails on Windows symlink creation during OpenNext trace copying.
-- GitHub Actions workflow has been added but not run yet.
+- `bun run build:cloudflare` passes locally with `next build --webpack`.
+- `bunx wrangler deploy --dry-run` reads the generated Worker/assets successfully; the sandbox blocks only Wrangler's user-directory debug log write.
+- GitHub Actions workflow deploys automatically on push to `main` or `master`; manual workflow dispatch can still be used for verify-only runs.

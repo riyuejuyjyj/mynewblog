@@ -681,7 +681,9 @@ export function StudioExperience() {
 
     setOperations((current) =>
       [
-        status.updateAvailable
+        status.error
+          ? `长青源远端检查失败：${status.error}`
+          : status.updateAvailable
           ? `长青源发现新版：${status.remoteVersion}`
           : `长青源版本已对齐：${status.remoteVersion || status.localVersion}`,
         ...current,

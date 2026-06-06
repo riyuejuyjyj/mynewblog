@@ -1724,7 +1724,22 @@ export const musicRouter = createTRPCRouter({
   }),
 
   checkChangqingSourceVersion: studioProcedure.query(async ({ ctx }) => {
-    const manifest = await fetchChangqingManifest();
+    let manifest = {
+      description: "",
+      updateUrl: "",
+      version: "",
+    };
+    let error = "";
+
+    try {
+      manifest = await fetchChangqingManifest();
+    } catch (manifestError) {
+      error =
+        manifestError instanceof Error
+          ? manifestError.message
+          : "Changqing remote manifest is not reachable.";
+    }
+
     const [source] = hasDatabase
       ? await ctx.db
           .select()
@@ -1746,6 +1761,7 @@ export const musicRouter = createTRPCRouter({
         Boolean(localVersion && remoteVersion) &&
         compareVersions(localVersion, remoteVersion) > 0,
       updateUrl: manifest.updateUrl,
+      error,
     };
   }),
 

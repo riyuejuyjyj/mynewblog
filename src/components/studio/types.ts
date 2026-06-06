@@ -163,6 +163,7 @@ export type StudioMusicSource = {
 export type StudioMusicSourceVersionStatus = {
   checkedAt: string;
   description: string;
+  error: string;
   localVersion: string;
   remoteVersion: string;
   sourceId: string;

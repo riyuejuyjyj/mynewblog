@@ -13,6 +13,49 @@ const memoryDb = {
   verification: [],
 };
 
+const DEFAULT_AUTH_ALLOWED_HOSTS = [
+  "tong777.ccwu.cc",
+  "mynewblog.2556419331.workers.dev",
+  "localhost:3000",
+  "127.0.0.1:3000",
+];
+
+function splitCsv(value: string | undefined) {
+  return (
+    value
+      ?.split(",")
+      .map((item) => item.trim())
+      .filter(Boolean) ?? []
+  );
+}
+
+function toAllowedHost(value: string | undefined) {
+  const trimmed = value?.trim().replace(/\/+$/g, "");
+
+  if (!trimmed) return "";
+
+  try {
+    return new URL(trimmed).host;
+  } catch {
+    return trimmed.replace(/^https?:\/\//, "").split("/")[0] ?? "";
+  }
+}
+
+function getAuthAllowedHosts() {
+  return Array.from(
+    new Set(
+      [
+        ...DEFAULT_AUTH_ALLOWED_HOSTS,
+        process.env.BETTER_AUTH_URL,
+        process.env.NEXT_PUBLIC_BETTER_AUTH_URL,
+        ...splitCsv(process.env.BETTER_AUTH_TRUSTED_ORIGINS),
+      ]
+        .map(toAllowedHost)
+        .filter(Boolean),
+    ),
+  );
+}
+
 function getAuthLogText(value: unknown): string {
   if (value instanceof Error) {
     const cause = "cause" in value ? value.cause : null;
@@ -83,7 +126,11 @@ export const auth = betterAuth({
   secret:
     process.env.BETTER_AUTH_SECRET ??
     "development-only-secret-change-before-deploying-mynewblog",
-  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  baseURL: {
+    allowedHosts: getAuthAllowedHosts(),
+    fallback: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+    protocol: process.env.NODE_ENV === "production" ? "https" : undefined,
+  },
   logger: {
     level: process.env.NODE_ENV === "production" ? "error" : "warn",
     log: logBetterAuth,

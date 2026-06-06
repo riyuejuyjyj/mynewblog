@@ -1,6 +1,10 @@
 name: Cloudflare
 
 on:
+  push:
+    branches:
+      - main
+      - master
   workflow_dispatch:
     inputs:
       deploy:
@@ -18,7 +22,7 @@ concurrency:
 
 env:
   BETTER_AUTH_URL: https://tong777.ccwu.cc
-  NEXT_PUBLIC_BETTER_AUTH_URL: https://tong777.ccwu.cc
+  BETTER_AUTH_TRUSTED_ORIGINS: ${{ vars.BETTER_AUTH_TRUSTED_ORIGINS }}
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
   STUDIO_INVITE_CODE: ${{ secrets.STUDIO_INVITE_CODE }}
@@ -70,7 +74,7 @@ jobs:
           find .open-next -type f -printf "%s %p\n" | sort -nr | head -20
 
       - name: Require Cloudflare deploy credentials
-        if: ${{ inputs.deploy }}
+        if: ${{ github.event_name == 'push' || inputs.deploy }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "CLOUDFLARE_API_TOKEN GitHub secret is required for deploy."
@@ -82,7 +86,7 @@ jobs:
           fi
 
       - name: Write Cloudflare runtime secrets
-        if: ${{ inputs.deploy }}
+        if: ${{ github.event_name == 'push' || inputs.deploy }}
         run: |
           node <<'NODE'
           const fs = require("node:fs");
@@ -91,7 +95,6 @@ jobs:
             "DATABASE_URL",
             "BETTER_AUTH_SECRET",
             "BETTER_AUTH_URL",
-            "NEXT_PUBLIC_BETTER_AUTH_URL",
             "STUDIO_INVITE_CODE",
             "R2_ACCOUNT_ID",
             "R2_ACCESS_KEY_ID",
@@ -99,7 +102,7 @@ jobs:
             "R2_BUCKET",
             "R2_PUBLIC_BASE_URL",
           ];
-          const optionalKeys = ["R2_ENDPOINT"];
+          const optionalKeys = ["R2_ENDPOINT", "BETTER_AUTH_TRUSTED_ORIGINS"];
           const secrets = {};
 
           for (const key of requiredKeys) {
@@ -130,5 +133,5 @@ jobs:
           NODE
 
       - name: Deploy to Cloudflare
-        if: ${{ inputs.deploy }}
+        if: ${{ github.event_name == 'push' || inputs.deploy }}
         run: bunx wrangler deploy --secrets-file .cloudflare-secrets.json
