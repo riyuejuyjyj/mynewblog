@@ -3,6 +3,10 @@ import { and, desc, eq } from "drizzle-orm";
 import { seedPosts } from "@/content/seed";
 import { db, hasDatabase } from "@/db";
 import { comments, posts } from "@/db/schema";
+import {
+  resolveStorageObjectUrl,
+  rewriteStorageObjectUrlsInText,
+} from "@/lib/storage-object-url";
 
 export type PublicPost = {
   id: string;
@@ -34,7 +38,29 @@ export type PublicComment = {
 function seedToPublicPost(post: (typeof seedPosts)[number]): PublicPost {
   return {
     ...post,
+    content: rewriteStorageObjectUrlsInText(post.content),
+    coverImage: resolveStorageObjectUrl(post.coverImage),
     publishedAt: post.publishedAt.toISOString(),
+  };
+}
+
+function rowToPublicPost(post: typeof posts.$inferSelect): PublicPost {
+  return {
+    id: post.id,
+    slug: post.slug,
+    title: post.title,
+    excerpt: post.excerpt,
+    content: rewriteStorageObjectUrlsInText(post.content),
+    coverImage: resolveStorageObjectUrl(post.coverImage),
+    category: post.category,
+    mood: post.mood,
+    tags: post.tags,
+    readingMinutes: post.readingMinutes,
+    viewCount: post.viewCount,
+    likeCount: post.likeCount,
+    featured: post.featured,
+    publishedAt: post.publishedAt.toISOString(),
+    updatedAt: post.updatedAt.toISOString(),
   };
 }
 
@@ -49,23 +75,7 @@ export async function getPublishedPosts(limit = 12): Promise<PublicPost[]> {
       .catch(() => []);
 
     if (rows.length > 0) {
-      return rows.map((post) => ({
-        id: post.id,
-        slug: post.slug,
-        title: post.title,
-        excerpt: post.excerpt,
-        content: post.content,
-        coverImage: post.coverImage,
-        category: post.category,
-        mood: post.mood,
-        tags: post.tags,
-        readingMinutes: post.readingMinutes,
-        viewCount: post.viewCount,
-        likeCount: post.likeCount,
-        featured: post.featured,
-        publishedAt: post.publishedAt.toISOString(),
-        updatedAt: post.updatedAt.toISOString(),
-      }));
+      return rows.map(rowToPublicPost);
     }
   }
 
@@ -82,23 +92,7 @@ export async function getPublishedPostBySlug(slug: string) {
       .catch(() => []);
 
     if (post?.published) {
-      return {
-        id: post.id,
-        slug: post.slug,
-        title: post.title,
-        excerpt: post.excerpt,
-        content: post.content,
-        coverImage: post.coverImage,
-        category: post.category,
-        mood: post.mood,
-        tags: post.tags,
-        readingMinutes: post.readingMinutes,
-        viewCount: post.viewCount,
-        likeCount: post.likeCount,
-        featured: post.featured,
-        publishedAt: post.publishedAt.toISOString(),
-        updatedAt: post.updatedAt.toISOString(),
-      } satisfies PublicPost;
+      return rowToPublicPost(post);
     }
   }
 

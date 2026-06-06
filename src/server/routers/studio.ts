@@ -4,7 +4,18 @@ import { z } from "zod";
 
 import { hasDatabase } from "@/db";
 import { comments, posts } from "@/db/schema";
+import {
+  isSupportedMediaReference,
+  resolveStorageObjectUrl,
+  rewriteStorageObjectUrlsInText,
+} from "@/lib/storage-object-url";
 import { createTRPCRouter, studioProcedure } from "@/server/trpc";
+
+const mediaReferenceInput = z
+  .string()
+  .min(1)
+  .max(1000)
+  .refine(isSupportedMediaReference, "Use an http(s), data image, or stored media URL.");
 
 const postInput = z.object({
   id: z.string().optional(),
@@ -16,7 +27,7 @@ const postInput = z.object({
   title: z.string().min(1).max(180),
   excerpt: z.string().min(1).max(420),
   content: z.string().min(1).max(50000),
-  coverImage: z.string().url().max(500),
+  coverImage: mediaReferenceInput,
   category: z.string().min(1).max(80).default("essay"),
   mood: z.string().min(1).max(60).default("quiet"),
   tags: z.array(z.string().min(1).max(40)).max(12).default([]),
@@ -128,8 +139,8 @@ export const studioRouter = createTRPCRouter({
       slug: input.slug,
       title: input.title.trim(),
       excerpt: input.excerpt.trim(),
-      content: input.content.trim(),
-      coverImage: input.coverImage,
+      content: rewriteStorageObjectUrlsInText(input.content.trim()),
+      coverImage: resolveStorageObjectUrl(input.coverImage),
       category: input.category.trim(),
       mood: input.mood.trim(),
       tags: input.tags.map((tag) => tag.trim()).filter(Boolean),

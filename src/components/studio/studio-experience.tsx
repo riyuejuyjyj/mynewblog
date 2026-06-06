@@ -37,6 +37,10 @@ import { emptyForm, postToForm, slugify } from "@/components/studio/studio-utils
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import {
+  resolveStorageObjectUrl,
+  rewriteStorageObjectUrlsInText,
+} from "@/lib/storage-object-url";
 import { trpc } from "@/trpc/client";
 
 const MAX_UPLOAD_SIZE = 25 * 1024 * 1024;
@@ -60,13 +64,23 @@ function buildExcerpt(form: StudioPostForm) {
 function resolveStoredCoverImage(value: string, assets: StudioMediaAsset[]) {
   const current = value.trim();
 
-  if (!current || /^(https?:\/\/|data:image\/|blob:)/i.test(current)) {
+  if (!current) {
     return current;
+  }
+
+  const normalizedCurrent = resolveStorageObjectUrl(current);
+
+  if (
+    normalizedCurrent !== current ||
+    /^(https?:\/\/|data:image\/|blob:)/i.test(current)
+  ) {
+    return normalizedCurrent;
   }
 
   const currentFileName = fileNameOf(current);
   const matchedAsset = assets.find((asset) => {
     const publicUrl = normalizeAssetValue(asset.publicUrl);
+    const previewUrl = normalizeAssetValue(asset.previewUrl);
     const objectKey = normalizeAssetValue(asset.objectKey);
     const altText = normalizeAssetValue(asset.altText);
     const objectFileName = fileNameOf(objectKey);
@@ -74,6 +88,7 @@ function resolveStoredCoverImage(value: string, assets: StudioMediaAsset[]) {
 
     return (
       publicUrl === current ||
+      previewUrl === current ||
       objectKey === current ||
       altText === current ||
       objectFileName === current ||
@@ -84,7 +99,9 @@ function resolveStoredCoverImage(value: string, assets: StudioMediaAsset[]) {
     );
   });
 
-  return matchedAsset?.publicUrl ?? current;
+  return resolveStorageObjectUrl(
+    matchedAsset?.previewUrl ?? matchedAsset?.publicUrl ?? current,
+  );
 }
 
 async function fetchWithTimeout(
@@ -121,6 +138,7 @@ async function uploadViaServer(file: File, folder: UploadFolder) {
   );
   const data = (await response.json().catch(() => ({}))) as {
     message?: string;
+    previewUrl?: string | null;
     publicUrl?: string | null;
   };
 
@@ -128,7 +146,7 @@ async function uploadViaServer(file: File, folder: UploadFolder) {
     throw new Error(data.message ?? "Server upload failed.");
   }
 
-  return data.publicUrl ?? null;
+  return data.previewUrl ?? data.publicUrl ?? null;
 }
 
 export function StudioExperience() {
@@ -406,7 +424,7 @@ export function StudioExperience() {
   function insertImageIntoContent(url: string, altText = "image") {
     setActiveView("editor");
     updateForm({
-      content: `${form.content.trimEnd()}\n\n![${altText}](${url})\n`,
+      content: `${form.content.trimEnd()}\n\n![${altText}](${resolveStorageObjectUrl(url)})\n`,
     });
   }
 
@@ -477,7 +495,8 @@ export function StudioExperience() {
     const title = nextForm.title.trim() || "Untitled";
     const slug = slugify(nextForm.slug || title) || `post-${Date.now().toString(36)}`;
     const excerpt = buildExcerpt(nextForm);
-    const content = nextForm.content.trim() || excerpt;
+    const content =
+      rewriteStorageObjectUrlsInText(nextForm.content.trim()) || excerpt;
     const readingMinutes = Math.max(
       1,
       Math.min(120, Number(nextForm.readingMinutes) || 1),
@@ -550,12 +569,12 @@ export function StudioExperience() {
 
     if (!upload.configured || !upload.uploadUrl) {
       setUploadStatus("R2 尚未完整配置，暂时只生成对象路径。");
-      return upload.publicUrl;
+      return upload.previewUrl ?? upload.publicUrl;
     }
 
     setUploadStatus("正在上传到 R2...");
 
-    let uploadedUrl = upload.publicUrl;
+    let uploadedUrl = upload.previewUrl ?? upload.publicUrl;
 
     try {
       const response = await fetchWithTimeout(
@@ -595,7 +614,7 @@ export function StudioExperience() {
     setOperations((current) => [`上传素材：${file.name}`, ...current].slice(0, 6));
     await utils.storage.assets.invalidate();
 
-    return uploadedUrl;
+    return uploadedUrl ? resolveStorageObjectUrl(uploadedUrl) : uploadedUrl;
   }
 
   function updateComment(

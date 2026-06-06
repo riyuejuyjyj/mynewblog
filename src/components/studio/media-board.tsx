@@ -199,7 +199,7 @@ export function MediaBoard({
 
         {imageAssets.map((asset) => {
           const previewUrl = assetImageUrl(asset);
-          const actionUrl = asset.publicUrl ?? previewUrl;
+          const actionUrl = previewUrl ?? asset.publicUrl;
           const isMissing = asset.exists === false;
           const isDeleting = deletingAssetId === asset.id;
           const isCurrentCover =

@@ -5,12 +5,38 @@ import { hasDatabase } from "@/db";
 import { comments, moments, posts } from "@/db/schema";
 import { seedComments, seedMoments, seedPosts } from "@/content/seed";
 import { getR2Status } from "@/lib/r2";
+import {
+  resolveStorageObjectUrl,
+  rewriteStorageObjectUrlsInText,
+} from "@/lib/storage-object-url";
 import { createTRPCRouter, publicProcedure } from "@/server/trpc";
 
 function toPreview(post: typeof seedPosts[number]) {
   return {
     ...post,
+    content: rewriteStorageObjectUrlsInText(post.content),
+    coverImage: resolveStorageObjectUrl(post.coverImage),
     publishedAt: post.publishedAt.toISOString(),
+  };
+}
+
+function postRowToPreview(post: typeof posts.$inferSelect) {
+  return {
+    id: post.id,
+    slug: post.slug,
+    title: post.title,
+    excerpt: post.excerpt,
+    content: rewriteStorageObjectUrlsInText(post.content),
+    coverImage: resolveStorageObjectUrl(post.coverImage),
+    category: post.category,
+    mood: post.mood,
+    tags: post.tags,
+    readingMinutes: post.readingMinutes,
+    viewCount: post.viewCount,
+    likeCount: post.likeCount,
+    featured: post.featured,
+    publishedAt: post.publishedAt.toISOString(),
+    updatedAt: post.updatedAt.toISOString(),
   };
 }
 
@@ -41,22 +67,7 @@ export const blogRouter = createTRPCRouter({
           .catch(() => []);
 
         if (rows.length > 0) {
-          return rows.map((post) => ({
-            id: post.id,
-            slug: post.slug,
-            title: post.title,
-            excerpt: post.excerpt,
-            content: post.content,
-            coverImage: post.coverImage,
-            category: post.category,
-            mood: post.mood,
-            tags: post.tags,
-            readingMinutes: post.readingMinutes,
-            viewCount: post.viewCount,
-            likeCount: post.likeCount,
-            featured: post.featured,
-            publishedAt: post.publishedAt.toISOString(),
-          }));
+          return rows.map(postRowToPreview);
         }
       }
 
@@ -75,23 +86,7 @@ export const blogRouter = createTRPCRouter({
           .catch(() => []);
 
         if (post?.published) {
-          return {
-            id: post.id,
-            slug: post.slug,
-            title: post.title,
-            excerpt: post.excerpt,
-            content: post.content,
-            coverImage: post.coverImage,
-            category: post.category,
-            mood: post.mood,
-            tags: post.tags,
-            readingMinutes: post.readingMinutes,
-            viewCount: post.viewCount,
-            likeCount: post.likeCount,
-            featured: post.featured,
-            publishedAt: post.publishedAt.toISOString(),
-            updatedAt: post.updatedAt.toISOString(),
-          };
+          return postRowToPreview(post);
         }
       }
 

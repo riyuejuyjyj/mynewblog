@@ -20,6 +20,7 @@ import {
   publicProcedure,
   studioProcedure,
 } from "@/server/trpc";
+import { buildStorageObjectUrl } from "@/lib/storage-object-url";
 
 const uploadInput = z.object({
   folder: z.enum(["covers", "gallery", "attachments", "music"]).default("attachments"),
@@ -69,6 +70,7 @@ export const storageRouter = createTRPCRouter({
       return Promise.all(
         rows.map(async (asset) => {
           const publicUrl = asset.publicUrl ?? getPublicR2Url(asset.objectKey);
+          const previewUrl = buildStorageObjectUrl(asset.objectKey);
           const exists =
             asset.contentType.startsWith("image/")
               ? await r2ObjectExists(asset.objectKey)
@@ -80,7 +82,7 @@ export const storageRouter = createTRPCRouter({
             publicUrl,
             previewUrl:
               asset.contentType.startsWith("image/") && exists !== false
-                ? publicUrl ?? (await createR2PreviewUrl(asset.objectKey))
+                ? previewUrl ?? publicUrl ?? (await createR2PreviewUrl(asset.objectKey))
                 : publicUrl,
             createdAt: asset.createdAt.toISOString(),
           };
@@ -99,6 +101,7 @@ export const storageRouter = createTRPCRouter({
           bucket: null,
           objectKey,
           uploadUrl: null,
+          previewUrl: buildStorageObjectUrl(objectKey),
           publicUrl: getPublicR2Url(objectKey),
           expiresIn: 0,
         };
@@ -112,6 +115,7 @@ export const storageRouter = createTRPCRouter({
 
       return {
         configured: true,
+        previewUrl: buildStorageObjectUrl(upload.objectKey),
         ...upload,
       };
     }),

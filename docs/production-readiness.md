@@ -197,6 +197,7 @@ After `preview:cloudflare` or deploy:
 - Post list and post detail pages read from Neon.
 - R2 media upload creates an object and records it in Neon.
 - Downloaded music streams through the same-origin `/api/music/download?mode=stream` route and file downloads use `/api/music/download?id=...`.
+- R2 images render through the same-origin `/api/storage/object?key=...` route so stored media does not depend on the current custom R2 public domain.
 - Public comments submit and Studio comments list/moderation works.
 - Music page loads in background mode but remains bugfix-only.
 

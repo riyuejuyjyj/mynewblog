@@ -5,6 +5,7 @@ import { mediaAssets } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { getPublicR2Url, isR2Configured, uploadR2Object } from "@/lib/r2";
 import { verifyStudioInviteCookie } from "@/lib/studio-invite";
+import { buildStorageObjectUrl } from "@/lib/storage-object-url";
 
 const MAX_UPLOAD_SIZE = 25 * 1024 * 1024;
 const folders = new Set(["covers", "gallery", "attachments", "music"]);
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     bucket: upload.bucket,
     objectKey: upload.objectKey,
+    previewUrl: buildStorageObjectUrl(upload.objectKey),
     publicUrl,
   });
 }

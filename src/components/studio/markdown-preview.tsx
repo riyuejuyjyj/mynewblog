@@ -5,6 +5,7 @@
 import type { ReactNode } from "react";
 
 import { createMarkdownHeadingId } from "@/lib/markdown";
+import { resolveStorageObjectUrl } from "@/lib/storage-object-url";
 
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -26,7 +27,7 @@ function renderInline(text: string): ReactNode[] {
         nodes.push(
           <img
             key={`${token}-${index}`}
-            src={parts[2]}
+            src={resolveStorageObjectUrl(parts[2])}
             alt={parts[1]}
             className="my-5 w-full rounded-3xl object-cover shadow-2xl shadow-slate-950/10"
           />,
