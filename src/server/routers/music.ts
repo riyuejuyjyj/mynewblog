@@ -809,9 +809,12 @@ async function resolveBuiltInProviderAudio(input: {
 
   const contentType = response.headers.get("content-type") ?? "";
   const text = await response.text();
-  const audioUrl = extractAudioUrl(
-    contentType.includes("application/json") ? JSON.parse(text) : text,
-  );
+  const trimmedText = text.trim();
+  const payload =
+    contentType.includes("application/json") || trimmedText.startsWith("{")
+      ? JSON.parse(trimmedText)
+      : trimmedText;
+  const audioUrl = extractAudioUrl(payload);
 
   if (!audioUrl) {
     throw new Error("Kuwo built-in resolver did not return an audio URL.");
