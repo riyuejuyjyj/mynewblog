@@ -286,6 +286,13 @@ export function StudioExperience() {
     },
   });
   const prepareMusicDownload = trpc.music.prepareDownload.useMutation({
+    onError: (error, input) => {
+      console.warn("[music.prepareDownload] failed", {
+        data: error.data,
+        input,
+        message: error.message,
+      });
+    },
     onSuccess: async () => {
       await utils.music.downloads.invalidate();
     },
@@ -782,7 +789,18 @@ export function StudioExperience() {
   async function prepareDownload(
     input: StudioPrepareMusicDownloadInput,
   ): Promise<StudioPrepareMusicDownloadResult> {
-    const result = await prepareMusicDownload.mutateAsync(input);
+    let result: Awaited<ReturnType<typeof prepareMusicDownload.mutateAsync>>;
+
+    try {
+      result = await prepareMusicDownload.mutateAsync(input);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      setOperations((current) =>
+        [`下载失败：${input.title} · ${message}`, ...current].slice(0, 6),
+      );
+      throw error;
+    }
 
     setOperations((current) =>
       [`下载音乐：${input.title}`, ...current].slice(0, 6),

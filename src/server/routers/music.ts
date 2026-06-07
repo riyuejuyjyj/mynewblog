@@ -801,11 +801,6 @@ async function resolveBuiltInProviderAudio(input: {
 
   const response = await fetch(url, {
     cache: "no-store",
-    headers: {
-      Referer: "https://www.kuwo.cn/",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    },
   });
 
   if (!response.ok) {
