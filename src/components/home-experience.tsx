@@ -4,12 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { CommentsSection } from "@/components/home/comments-section";
-import {
-  copy,
-  localizedComments,
-  localizedMoments,
-  localizedPosts,
-} from "@/components/home/copy";
+import { copy, localizedMoments } from "@/components/home/copy";
 import { GallerySystemSection } from "@/components/home/gallery-system-section";
 import { HeroSection } from "@/components/home/hero-section";
 import { HomeNav } from "@/components/home/home-nav";
@@ -20,6 +15,10 @@ import type {
   Locale,
 } from "@/components/home/types";
 import { DynamicBackdrop } from "@/components/dynamic-backdrop";
+import {
+  withZhCommentOverride,
+  withZhPostOverride,
+} from "@/content/public-overrides";
 import { seedComments, seedMoments, seedPosts } from "@/content/seed";
 import { trpc } from "@/trpc/client";
 
@@ -73,10 +72,8 @@ export function HomeExperience() {
       ...post,
       publishedAt: post.publishedAt.toISOString(),
     }));
-  const posts = rawPosts.map((post) => ({
-    ...post,
-    ...(localizedPosts[locale][post.slug] ?? {}),
-  }));
+  const posts =
+    locale === "zh" ? rawPosts.map(withZhPostOverride) : rawPosts;
 
   const rawMoments =
     momentsQuery.data ??
@@ -95,10 +92,8 @@ export function HomeExperience() {
       ...comment,
       createdAt: comment.createdAt.toISOString(),
     }));
-  const comments = rawComments.map((comment) => ({
-    ...comment,
-    ...(localizedComments[locale][comment.id] ?? {}),
-  }));
+  const comments =
+    locale === "zh" ? rawComments.map(withZhCommentOverride) : rawComments;
 
   const dashboard = dashboardQuery.data ?? getFallbackDashboard();
   const featured = posts.find((post) => post.featured) ?? posts[0];

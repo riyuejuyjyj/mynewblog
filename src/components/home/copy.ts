@@ -107,44 +107,7 @@ export const copy = {
 
 export type HomeCopy = typeof copy[Locale];
 
-type PostLocaleOverride = Partial<{
-  title: string;
-  excerpt: string;
-  content: string;
-  category: string;
-}>;
-
 type TextOverride = Partial<{ body: string }>;
-
-export const localizedPosts: Record<Locale, Record<string, PostLocaleOverride>> = {
-  zh: {
-    "first-light": {
-      title: "把博客做成一间会发光的书房",
-      excerpt:
-        "这里会收下研究笔记、代码札记、阅读灵感和生活碎片，让内容先拥有可以停留的气味。",
-      content:
-        "第一篇文章不急着证明什么，只先把桌面、灯光、纸张和入口摆好，等真正的内容慢慢落座。",
-      category: "书房札记",
-    },
-    "neon-notes": {
-      title: "给慢一点的笔记留出位置",
-      excerpt:
-        "有些想法不适合被压缩成状态更新，它们需要一段路、一盏灯，和能反复回来修改的空间。",
-      content:
-        "博客最珍贵的部分，是它允许未完成。研究问题、工程判断和阅读札记都可以先留下轮廓，再慢慢长出细节。",
-      category: "写作",
-    },
-    "auth-room": {
-      title: "给创作室留一扇安静的门",
-      excerpt:
-        "公开页面负责表达，创作室负责整理草稿。门关上时，读者只需要看见已经准备好的部分。",
-      content:
-        "一个好的写作空间应该把工具收在幕后，把注意力留给文字、图片和那些真正需要被记录的时刻。",
-      category: "创作室",
-    },
-  },
-  en: {},
-};
 
 export const localizedMoments: Record<Locale, Record<string, TextOverride>> = {
   zh: {
@@ -156,18 +119,6 @@ export const localizedMoments: Record<Locale, Record<string, TextOverride>> = {
     },
     "moment-03": {
       body: "希望这个地方轻一点，但不要空；安静一点，但仍然有人正在生活。",
-    },
-  },
-  en: {},
-};
-
-export const localizedComments: Record<Locale, Record<string, TextOverride>> = {
-  zh: {
-    "comment-01": {
-      body: "这个博客像是能同时记住实验、天气和一点点心情的地方。",
-    },
-    "comment-02": {
-      body: "喜欢这种不急着喊口号的首页，读起来像是可以慢慢回来。",
     },
   },
   en: {},

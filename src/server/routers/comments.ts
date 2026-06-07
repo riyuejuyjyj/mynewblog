@@ -5,6 +5,7 @@ import { z } from "zod";
 import { hasDatabase } from "@/db";
 import { comments } from "@/db/schema";
 import { seedComments } from "@/content/seed";
+import { withZhCommentOverride } from "@/content/public-overrides";
 import {
   createTRPCRouter,
   publicProcedure,
@@ -24,6 +25,21 @@ function toComment(comment: typeof seedComments[number]) {
     ...comment,
     createdAt: comment.createdAt.toISOString(),
   };
+}
+
+function toPublicDetailComment(comment: typeof seedComments[number]) {
+  return withZhCommentOverride(toComment(comment));
+}
+
+function commentRowToPublicDetail(comment: typeof comments.$inferSelect) {
+  return withZhCommentOverride({
+    id: comment.id,
+    postSlug: comment.postSlug,
+    authorName: comment.authorName,
+    body: comment.body,
+    status: comment.status,
+    createdAt: comment.createdAt.toISOString(),
+  });
 }
 
 export const commentsRouter = createTRPCRouter({
@@ -88,23 +104,16 @@ export const commentsRouter = createTRPCRouter({
           return seedComments
             .filter((comment) => comment.postSlug === input.postSlug)
             .slice(0, input.limit)
-            .map(toComment);
+            .map(toPublicDetailComment);
         }
 
-        return rows.map((comment) => ({
-          id: comment.id,
-          postSlug: comment.postSlug,
-          authorName: comment.authorName,
-          body: comment.body,
-          status: comment.status,
-          createdAt: comment.createdAt.toISOString(),
-        }));
+        return rows.map(commentRowToPublicDetail);
       }
 
       return seedComments
         .filter((comment) => comment.postSlug === input.postSlug)
         .slice(0, input.limit)
-        .map(toComment);
+        .map(toPublicDetailComment);
     }),
 
   create: publicProcedure.input(commentInput).mutation(async ({ ctx, input }) => {

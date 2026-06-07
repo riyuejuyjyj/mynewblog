@@ -65,8 +65,8 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
             <MessageCircle className="size-6" />
           </span>
           <div>
-            <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-300">
-              Comment
+            <p className="text-xs font-black text-slate-500 dark:text-slate-300">
+              留言
             </p>
             <h2 className="text-2xl font-black tracking-[0]">留下回声</h2>
           </div>
@@ -107,7 +107,7 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
             rows={5}
             value={body}
             onChange={(event) => setBody(event.target.value)}
-            placeholder="写点什么..."
+            placeholder="写下你想留下的一句话"
             className="studio-input resize-none leading-7"
           />
           <Button
@@ -124,8 +124,8 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
       <div className="rounded-[1.6rem] border border-white/45 bg-white/58 p-5 shadow-xl shadow-slate-950/10 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/58 sm:p-6">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-black uppercase text-coral-700 dark:text-coral-200">
-              Reader Notes
+            <p className="text-xs font-black text-coral-700 dark:text-coral-200">
+              读者回声
             </p>
             <h2 className="mt-1 text-2xl font-black tracking-[0]">评论</h2>
           </div>

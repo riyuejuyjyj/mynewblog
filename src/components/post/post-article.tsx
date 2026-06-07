@@ -86,7 +86,7 @@ export function PostArticle({
         <motion.header
           animate={{ opacity: 1, y: 0 }}
           className="group relative isolate min-h-[520px] overflow-hidden rounded-[2rem] border border-white/35 shadow-2xl shadow-slate-950/20 dark:border-white/10"
-          initial={{ opacity: 0, y: 18 }}
+          initial={false}
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         >
           <img
@@ -99,7 +99,7 @@ export function PostArticle({
             <motion.div
               animate={{ opacity: 1, y: 0 }}
               className="max-w-4xl"
-              initial={{ opacity: 0, y: 16 }}
+              initial={false}
               transition={{ delay: 0.12, duration: 0.55 }}
             >
               <div className="flex flex-wrap gap-2">
@@ -107,7 +107,7 @@ export function PostArticle({
                   {post.mood}
                 </span>
                 <span className="rounded-full border border-white/25 bg-white/18 px-3 py-1 text-xs font-black text-white shadow-lg backdrop-blur-md">
-                  {post.readingMinutes} min read
+                  {post.readingMinutes} 分钟阅读
                 </span>
               </div>
 
@@ -140,14 +140,14 @@ export function PostArticle({
           <motion.section
             animate={{ opacity: 1, y: 0 }}
             className="article-paper overflow-hidden rounded-[2rem] border border-white/45 bg-white/68 shadow-2xl shadow-slate-950/12 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/62"
-            initial={{ opacity: 0, y: 22 }}
+            initial={false}
             transition={{ delay: 0.18, duration: 0.55 }}
           >
             <div className="border-b border-slate-200/65 px-5 py-4 dark:border-white/10 sm:px-8">
               <div className="flex flex-wrap items-center gap-2 text-xs font-black text-slate-500 dark:text-slate-300">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-950/5 px-3 py-1.5 dark:bg-white/10">
                   <Clock3 className="size-3.5" />
-                  写作时间：{formatShortDate(post.publishedAt)}
+                  发布日期：{formatShortDate(post.publishedAt)}
                 </span>
                 {post.tags.map((tag) => (
                   <span
@@ -173,7 +173,7 @@ export function PostArticle({
             <motion.section
               animate={{ opacity: 1, x: 0 }}
               className="rounded-[1.6rem] border border-white/45 bg-white/58 p-5 shadow-xl shadow-slate-950/10 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/58"
-              initial={{ opacity: 0, x: 20 }}
+              initial={false}
               transition={{ delay: 0.24, duration: 0.5 }}
             >
               <div className="flex items-center gap-3">
@@ -181,8 +181,8 @@ export function PostArticle({
                   <Sparkles className="size-5" />
                 </span>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                    Article Notes
+                  <p className="text-[10px] font-black text-slate-400">
+                    阅读导航
                   </p>
                   <h2 className="text-lg font-black">阅读信息</h2>
                 </div>
@@ -213,11 +213,11 @@ export function PostArticle({
               <motion.section
                 animate={{ opacity: 1, x: 0 }}
                 className="rounded-[1.6rem] border border-white/45 bg-white/58 p-5 shadow-xl shadow-slate-950/10 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/58"
-                initial={{ opacity: 0, x: 20 }}
+                initial={false}
                 transition={{ delay: 0.3, duration: 0.5 }}
               >
-                <h2 className="border-l-4 border-coral-400 pl-3 text-sm font-black uppercase tracking-[0.12em]">
-                  Recommended
+                <h2 className="border-l-4 border-coral-400 pl-3 text-sm font-black">
+                  相邻文章
                 </h2>
                 <div className="mt-4 space-y-3">
                   {relatedPosts.map((item) => (
@@ -229,7 +229,7 @@ export function PostArticle({
                       <h3 className="line-clamp-2 text-sm font-black transition-colors group-hover:text-coral-700 dark:group-hover:text-coral-100">
                         {item.title}
                       </h3>
-                      <p className="mt-1 text-[10px] font-bold uppercase text-slate-400">
+                      <p className="mt-1 text-[10px] font-bold text-slate-400">
                         {formatShortDate(item.publishedAt)}
                       </p>
                     </Link>
@@ -242,13 +242,13 @@ export function PostArticle({
               <motion.section
                 animate={{ opacity: 1, x: 0 }}
                 className="max-h-[68vh] overflow-y-auto rounded-[1.6rem] border border-white/45 bg-white/58 p-5 shadow-xl shadow-slate-950/10 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/58"
-                initial={{ opacity: 0, x: 20 }}
+                initial={false}
                 transition={{ delay: 0.36, duration: 0.5 }}
               >
                 <div className="mb-4 flex items-center gap-2">
                   <ListTree className="size-4 text-coral-500" />
-                  <h2 className="text-sm font-black uppercase tracking-[0.12em]">
-                    Table of Contents
+                  <h2 className="text-sm font-black">
+                    文章目录
                   </h2>
                 </div>
                 <nav className="relative space-y-1 border-l border-slate-200/80 pl-3 dark:border-white/10">

@@ -1,6 +1,10 @@
 import { and, desc, eq } from "drizzle-orm";
 
-import { seedPosts } from "@/content/seed";
+import { seedComments, seedPosts } from "@/content/seed";
+import {
+  withZhCommentOverride,
+  withZhPostOverride,
+} from "@/content/public-overrides";
 import { db, hasDatabase } from "@/db";
 import { comments, posts } from "@/db/schema";
 import {
@@ -36,16 +40,16 @@ export type PublicComment = {
 };
 
 function seedToPublicPost(post: (typeof seedPosts)[number]): PublicPost {
-  return {
+  return withZhPostOverride({
     ...post,
     content: rewriteStorageObjectUrlsInText(post.content),
     coverImage: resolveStorageObjectUrl(post.coverImage),
     publishedAt: post.publishedAt.toISOString(),
-  };
+  });
 }
 
 function rowToPublicPost(post: typeof posts.$inferSelect): PublicPost {
-  return {
+  return withZhPostOverride({
     id: post.id,
     slug: post.slug,
     title: post.title,
@@ -61,7 +65,27 @@ function rowToPublicPost(post: typeof posts.$inferSelect): PublicPost {
     featured: post.featured,
     publishedAt: post.publishedAt.toISOString(),
     updatedAt: post.updatedAt.toISOString(),
-  };
+  });
+}
+
+function seedToPublicComment(
+  comment: (typeof seedComments)[number],
+): PublicComment {
+  return withZhCommentOverride({
+    ...comment,
+    createdAt: comment.createdAt.toISOString(),
+  });
+}
+
+function rowToPublicComment(comment: typeof comments.$inferSelect): PublicComment {
+  return withZhCommentOverride({
+    id: comment.id,
+    postSlug: comment.postSlug,
+    authorName: comment.authorName,
+    body: comment.body,
+    status: comment.status,
+    createdAt: comment.createdAt.toISOString(),
+  });
 }
 
 export async function getPublishedPosts(limit = 12): Promise<PublicPost[]> {
@@ -110,15 +134,16 @@ export async function getApprovedCommentsByPost(slug: string) {
       .limit(50)
       .catch(() => []);
 
-    return rows.map((comment) => ({
-        id: comment.id,
-        postSlug: comment.postSlug,
-        authorName: comment.authorName,
-        body: comment.body,
-        status: comment.status,
-        createdAt: comment.createdAt.toISOString(),
-      }));
+    if (rows.length === 0) {
+      return seedComments
+        .filter((comment) => comment.postSlug === slug)
+        .map(seedToPublicComment);
+    }
+
+    return rows.map(rowToPublicComment);
   }
 
-  return [];
+  return seedComments
+    .filter((comment) => comment.postSlug === slug)
+    .map(seedToPublicComment);
 }
