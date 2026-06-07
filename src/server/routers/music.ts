@@ -745,6 +745,92 @@ async function resolveWithConfiguredSource(
   });
 }
 
+function toErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown music source error.";
+}
+
+function assertHttpAudioUrl(value: string) {
+  const trimmed = value.trim();
+
+  try {
+    const url = new URL(trimmed);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return "";
+    }
+
+    return trimmed;
+  } catch {
+    return "";
+  }
+}
+
+function extractAudioUrl(value: unknown): string {
+  if (typeof value === "string") return assertHttpAudioUrl(value);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return "";
+  }
+
+  const record = value as Record<string, unknown>;
+
+  for (const key of ["url", "musicUrl", "audioUrl", "playUrl", "data"]) {
+    const candidate = record[key];
+    const audioUrl = extractAudioUrl(candidate);
+
+    if (audioUrl) return audioUrl;
+  }
+
+  return "";
+}
+
+async function resolveBuiltInProviderAudio(input: {
+  provider: z.infer<typeof sourceProviderSchema>;
+  quality: z.infer<typeof qualitySchema>;
+  songId: string;
+}) {
+  const songId = input.songId.trim();
+
+  if (input.provider !== "kw" || !songId) return null;
+
+  const url = new URL("https://antiserver.kuwo.cn/anti.s");
+
+  url.searchParams.set("type", "convert_url3");
+  url.searchParams.set("rid", `MUSIC_${songId}`);
+  url.searchParams.set("format", input.quality === "flac" ? "flac" : "mp3");
+  url.searchParams.set("response", "url");
+
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      Referer: "https://www.kuwo.cn/",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Kuwo built-in resolver failed with ${response.status}.`);
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  const text = await response.text();
+  const audioUrl = extractAudioUrl(
+    contentType.includes("application/json") ? JSON.parse(text) : text,
+  );
+
+  if (!audioUrl) {
+    throw new Error("Kuwo built-in resolver did not return an audio URL.");
+  }
+
+  return {
+    audioUrl,
+    provider: input.provider,
+    quality: input.quality,
+    sourceFileName: "kuwo-built-in",
+    warnings: ["Used built-in Kuwo URL resolver."],
+  };
+}
+
 async function getConfiguredSearchDefinitions(ctx: { db: typeof import("@/db").db }) {
   if (!hasDatabase) return defaultMusicPluginDefinitions;
 
@@ -817,6 +903,27 @@ async function resolveDownloadAudio(
       }
     }
 
+    if (sourceProvider.success && input.sourceSongId.trim()) {
+      const builtInResult = await resolveBuiltInProviderAudio({
+        provider: sourceProvider.data,
+        quality: input.quality,
+        songId: input.sourceSongId,
+      }).catch((error: unknown) => {
+        configuredErrorMessages.push(
+          `Built-in provider resolver failed: ${toErrorMessage(error)}`,
+        );
+        return null;
+      });
+
+      if (builtInResult?.audioUrl) {
+        return {
+          audioUrl: builtInResult.audioUrl,
+          lyric: input.lyric,
+          warnings: builtInResult.warnings,
+        };
+      }
+    }
+
     const searchDefinitions = await getConfiguredSearchDefinitions(ctx);
     const candidate =
       input.candidate ??
@@ -836,10 +943,7 @@ async function resolveDownloadAudio(
       songId: input.sourceSongId,
     }).catch((error: unknown) => {
       if (!input.audioUrl.trim()) {
-        const pluginMessage =
-          error instanceof Error
-            ? error.message
-            : "Remote music source resolve failed.";
+        const pluginMessage = toErrorMessage(error);
         const configuredMessage = configuredErrorMessages.at(-1);
 
         throw new TRPCError({
@@ -2014,6 +2118,17 @@ export const musicRouter = createTRPCRouter({
 
       if (configuredResult) return configuredResult;
 
+      const builtInResult = await resolveBuiltInProviderAudio({
+        provider: input.provider,
+        quality: input.quality,
+        songId: input.songId,
+      }).catch((error: unknown) => {
+        configuredErrorMessages.push(toErrorMessage(error));
+        return null;
+      });
+
+      if (builtInResult) return builtInResult;
+
       const pluginProvider = toPluginProvider(input.provider);
       const searchDefinitions = await getConfiguredSearchDefinitions(ctx);
 
@@ -2153,6 +2268,32 @@ export const musicRouter = createTRPCRouter({
                 `已使用 PG 音源 ${configuredResult.sourceFileName} 解析。`,
                 ...configuredResult.warnings,
               ],
+            };
+          }
+
+          const sourceProvider = sourceProviderSchema.safeParse(input.provider);
+          const builtInResult = sourceProvider.success
+            ? await resolveBuiltInProviderAudio({
+                provider: sourceProvider.data,
+                quality: input.quality,
+                songId: input.songId,
+              }).catch(() => null)
+            : null;
+
+          if (builtInResult) {
+            const lyricResult = await lyricPromise;
+
+            return {
+              audioUrl: builtInResult.audioUrl,
+              ...(lyricResult
+                ? {
+                    lyric: lyricResult.lyric,
+                    lyricSource: lyricResult.source,
+                  }
+                : {}),
+              source: input.provider,
+              title: input.candidate?.title,
+              warnings: builtInResult.warnings,
             };
           }
         }
