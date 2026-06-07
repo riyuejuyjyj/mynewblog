@@ -318,9 +318,11 @@
     z-index: 100;
     display: grid;
     place-items: center;
+    pointer-events: none;
     background:
       linear-gradient(135deg, rgb(248 250 252), rgb(255 241 237)),
       #f8fafc;
+    animation: splashAutoDismiss 2.8s ease forwards;
     transition:
       opacity 600ms ease,
       visibility 600ms ease,
@@ -337,6 +339,7 @@
     visibility: hidden;
     opacity: 0;
     filter: blur(16px);
+    animation: none;
   }
 
   .splash-card {
@@ -471,5 +474,19 @@
   }
   100% {
     width: 100%;
+  }
+}
+
+@keyframes splashAutoDismiss {
+  0%,
+  78% {
+    visibility: visible;
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    visibility: hidden;
+    opacity: 0;
+    filter: blur(16px);
   }
 }

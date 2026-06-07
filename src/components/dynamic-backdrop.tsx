@@ -53,7 +53,7 @@ export function DynamicBackdrop({ ambientMode }: DynamicBackdropProps) {
               "--backdrop-image": `url(${profile.backgroundImages[activeIndex]})`,
             } as CSSProperties
           }
-          initial={{ opacity: 0, scale: 1.06 }}
+          initial={false}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 1.02 }}
           transition={{ duration: 1.8, ease: "easeInOut" }}

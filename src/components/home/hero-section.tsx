@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, DatabaseZap, Lock, Radio, User } from "lucide-react";
+import { BookOpen, Lock, PenLine, Radio, User } from "lucide-react";
 import Image from "next/image";
 
 import type { HomeCopy } from "@/components/home/copy";
@@ -24,15 +24,17 @@ function compactNumber(value: number) {
 }
 
 export function HeroSection({ dashboard, featured, t }: HeroSectionProps) {
+  const heroBadges = [featured.category, ...featured.tags.slice(0, 3)];
+  const currentThemes = [featured.category, ...featured.tags].slice(0, 5);
+
   return (
     <section className="relative z-10 mx-auto mt-8 grid w-full max-w-7xl grid-cols-1 gap-6 lg:grid-cols-12">
       <Reveal className="lg:col-span-7">
         <div className="glass-panel min-h-[520px] overflow-hidden p-6 sm:p-8">
           <div className="flex flex-wrap items-center gap-3">
-            <Badge>Next.js 16</Badge>
-            <Badge>tRPC + TanStack Query</Badge>
-            <Badge>{dashboard.databaseMode}</Badge>
-            <Badge>{dashboard.storageMode}</Badge>
+            {heroBadges.map((badge) => (
+              <Badge key={badge}>{badge}</Badge>
+            ))}
           </div>
 
           <div className="mt-16 max-w-2xl">
@@ -66,8 +68,8 @@ export function HeroSection({ dashboard, featured, t }: HeroSectionProps) {
           <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               [t.metrics[0], dashboard.postCount],
-              [t.metrics[1], compactNumber(dashboard.totalViews)],
-              [t.metrics[2], compactNumber(dashboard.totalLikes)],
+              [t.metrics[1], dashboard.momentCount],
+              [t.metrics[2], compactNumber(dashboard.totalViews)],
               [t.metrics[3], dashboard.commentCount],
             ].map(([label, value]) => (
               <HoverLift
@@ -148,10 +150,10 @@ export function HeroSection({ dashboard, featured, t }: HeroSectionProps) {
                   {t.studioTitle}
                 </h2>
               </div>
-              <DatabaseZap className="size-8 text-emerald-500" />
+              <PenLine className="size-8 text-emerald-500" />
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
-              {dashboard.stack.map((item) => (
+              {currentThemes.map((item) => (
                 <Badge key={item}>{item}</Badge>
               ))}
             </div>

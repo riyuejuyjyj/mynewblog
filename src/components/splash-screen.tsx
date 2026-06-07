@@ -32,7 +32,7 @@ export function SplashScreen() {
           <span />
         </div>
         <div className="splash-copy">
-          <p>INITIALIZING SYSTEM</p>
+          <p>OPENING NOTEBOOK</p>
           <h1>{profile.name}</h1>
         </div>
         <div className="splash-progress">

@@ -45,6 +45,10 @@ export const commentsRouter = createTRPCRouter({
           .limit(input.limit)
           .catch(() => []);
 
+        if (rows.length === 0) {
+          return seedComments.slice(0, input.limit).map(toComment);
+        }
+
         return rows.map((comment) => ({
           id: comment.id,
           postSlug: comment.postSlug,
@@ -79,6 +83,13 @@ export const commentsRouter = createTRPCRouter({
           .orderBy(desc(comments.createdAt))
           .limit(input.limit)
           .catch(() => []);
+
+        if (rows.length === 0) {
+          return seedComments
+            .filter((comment) => comment.postSlug === input.postSlug)
+            .slice(0, input.limit)
+            .map(toComment);
+        }
 
         return rows.map((comment) => ({
           id: comment.id,

@@ -3,7 +3,6 @@
 import {
   Languages,
   MoonStar,
-  Search,
   Sparkles,
   SunMedium,
 } from "lucide-react";
@@ -61,9 +60,6 @@ export function HomeNav({
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="glass" size="icon" title={t.search} aria-label={t.search}>
-          <Search className="size-4" />
-        </Button>
         <Button
           type="button"
           variant="glass"

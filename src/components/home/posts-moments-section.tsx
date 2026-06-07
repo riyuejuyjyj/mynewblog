@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Heart, MessageCircle } from "lucide-react";
+import { Heart, MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -12,7 +12,6 @@ import {
 } from "@/components/home/motion-primitives";
 import type { DisplayMoment, DisplayPost } from "@/components/home/types";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 type PostsMomentsSectionProps = {
   formatDate: (value: string) => string;
@@ -33,7 +32,7 @@ export function PostsMomentsSection({
       className="relative z-10 mx-auto mt-6 grid w-full max-w-7xl grid-cols-1 gap-6 lg:grid-cols-12"
     >
       <Reveal className="glass-panel p-6 lg:col-span-8">
-        <div className="flex items-end justify-between gap-4">
+        <div>
           <div>
             <p className="text-sm font-bold text-coral-700 dark:text-coral-200">
               {t.latestPosts}
@@ -42,9 +41,6 @@ export function PostsMomentsSection({
               {t.recentNotes}
             </h2>
           </div>
-          <Button variant="glass" size="icon" aria-label="Open posts">
-            <ArrowUpRight className="size-4" />
-          </Button>
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">

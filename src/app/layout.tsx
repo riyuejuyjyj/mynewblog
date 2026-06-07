@@ -6,7 +6,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "MyNewBlog",
-  description: "A glassmorphism Next.js blog powered by tRPC, Drizzle, Neon, and Better Auth.",
+  description:
+    "A personal blog for research notes, engineering essays, reading traces, and everyday fragments.",
 };
 
 export default function RootLayout({

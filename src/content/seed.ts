@@ -35,8 +35,8 @@ export type BlogComment = {
 export const profile = {
   name: "MyNewBlog",
   handle: "treasure log",
-  title: "A luminous notebook for code, research, and everyday fragments.",
-  bio: "Built with our modern stack while borrowing the airy, transparent, personal mood of XinghuisamaBlogs.",
+  title: "A breathing blog for ideas, experiments, and daily fragments.",
+  bio: "Research thoughts, engineering notes, reading traces, and small scenes from daily life.",
   avatar:
     "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=320&q=80",
   backgroundImages: [
@@ -52,14 +52,14 @@ export const seedPosts: BlogPostPreview[] = [
     slug: "first-light",
     title: "Turning a blog into a small room of light",
     excerpt:
-      "The new site starts from atmosphere, but the foundation stays practical: tRPC, Drizzle, Better Auth, Neon, and room to grow.",
+      "A place for research notes, code journals, reading sparks, and ordinary fragments to settle before they disappear.",
     content:
-      "This seed entry proves the data layer, API layer, and visual layer can work together before the full writing studio lands.",
+      "The first note does not need to prove much. It only has to arrange the desk, the lamp, the paper, and the doorway for the work that follows.",
     coverImage:
       "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",
-    category: "Build Log",
+    category: "Notebook",
     mood: "spark",
-    tags: ["Next.js", "tRPC", "Drizzle"],
+    tags: ["Research", "Code", "Life"],
     readingMinutes: 5,
     viewCount: 1280,
     likeCount: 86,
@@ -69,16 +69,16 @@ export const seedPosts: BlogPostPreview[] = [
   {
     id: "seed-02",
     slug: "neon-notes",
-    title: "Wiring Neon into the writing system",
+    title: "Making room for slower notes",
     excerpt:
-      "When DATABASE_URL exists, the same tRPC queries switch from preview seed data to Drizzle tables backed by Postgres.",
+      "Some ideas should not be compressed into a status update. They need a path, a light, and space to be revised.",
     content:
-      "The connection is guarded so local design work still feels smooth, while production can rely on Neon Postgres.",
+      "A blog is useful because it allows unfinished thinking. Research questions, engineering choices, and reading traces can start as outlines and grow into clearer notes.",
     coverImage:
       "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
-    category: "Database",
+    category: "Writing",
     mood: "focus",
-    tags: ["Neon", "Postgres", "Schema"],
+    tags: ["Notes", "Reading", "Drafts"],
     readingMinutes: 4,
     viewCount: 932,
     likeCount: 64,
@@ -88,16 +88,16 @@ export const seedPosts: BlogPostPreview[] = [
   {
     id: "seed-03",
     slug: "auth-room",
-    title: "Better Auth guards the studio door",
+    title: "A quiet door for drafts",
     excerpt:
-      "Email/password sign-in and sessions are ready for the future author dashboard, drafts, comments, and collections.",
+      "The public site holds the finished pieces. The private room keeps the drafts, edits, and half-shaped thoughts out of the way.",
     content:
-      "Authentication stays quiet on the homepage, but the route handlers and client entry are already in place.",
+      "A good writing room keeps its tools in the background and leaves attention for words, images, and the moments worth recording.",
     coverImage:
       "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80",
-    category: "Auth",
+    category: "Studio",
     mood: "calm",
-    tags: ["Better Auth", "Session", "Author"],
+    tags: ["Drafts", "Writing", "Quiet"],
     readingMinutes: 3,
     viewCount: 760,
     likeCount: 51,
@@ -109,22 +109,22 @@ export const seedPosts: BlogPostPreview[] = [
 export const seedMoments: BlogMoment[] = [
   {
     id: "moment-01",
-    body: "Today the homepage became glassy and lived-in instead of a blank template.",
+    body: "Today the homepage became a room someone could sit down in: posts, photos, and enough quiet space between them.",
     location: "Design desk",
     accent: "coral",
     createdAt: new Date("2026-05-24T11:10:00+08:00"),
   },
   {
     id: "moment-02",
-    body: "After tRPC landed, the homepage stopped being static decoration and started behaving like an application.",
-    location: "API route",
+    body: "Some engineering choices need to be written down, then reread weeks later to see whether the hesitation was useful.",
+    location: "Notebook",
     accent: "mint",
     createdAt: new Date("2026-05-23T22:00:00+08:00"),
   },
   {
     id: "moment-03",
-    body: "The component system stays shadcn-like, but the surface is softer, lighter, and more personal.",
-    location: "UI pass",
+    body: "I want this place to feel light without feeling empty, quiet without feeling abandoned.",
+    location: "Window light",
     accent: "indigo",
     createdAt: new Date("2026-05-22T20:40:00+08:00"),
   },
@@ -143,7 +143,7 @@ export const seedComments: BlogComment[] = [
     id: "comment-02",
     postSlug: "neon-notes",
     authorName: "Aster",
-    body: "The stack note is clean. I like that preview data and Neon share one API path.",
+    body: "I like that the homepage does not rush to explain itself. It feels like somewhere worth returning to.",
     status: "approved",
     createdAt: new Date("2026-05-23T18:35:00+08:00"),
   },

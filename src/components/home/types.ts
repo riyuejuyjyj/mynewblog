@@ -23,9 +23,6 @@ export type DashboardData = {
   commentCount: number;
   totalViews: number;
   totalLikes: number;
-  stack: string[];
-  databaseMode: string;
-  storageMode: string;
 };
 
 export type StorageStatus = {

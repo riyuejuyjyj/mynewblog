@@ -18,7 +18,6 @@ import type {
   AmbientMode,
   DashboardData,
   Locale,
-  StorageStatus,
 } from "@/components/home/types";
 import { DynamicBackdrop } from "@/components/dynamic-backdrop";
 import { seedComments, seedMoments, seedPosts } from "@/content/seed";
@@ -44,26 +43,6 @@ function getFallbackDashboard(): DashboardData {
     commentCount: seedComments.length,
     totalViews: seedPosts.reduce((total, post) => total + post.viewCount, 0),
     totalLikes: seedPosts.reduce((total, post) => total + post.likeCount, 0),
-    stack: [
-      "Next.js",
-      "tRPC",
-      "TanStack",
-      "Drizzle",
-      "Neon",
-      "Better Auth",
-      "Cloudflare R2",
-    ],
-    databaseMode: "Seed preview",
-    storageMode: "R2 pending",
-  };
-}
-
-function getFallbackStorage(): StorageStatus {
-  return {
-    provider: "Cloudflare R2",
-    configured: false,
-    bucket: null,
-    publicBaseUrl: null,
   };
 }
 
@@ -73,7 +52,6 @@ export function HomeExperience() {
   const postsQuery = trpc.blog.feed.useQuery({ limit: 6 });
   const momentsQuery = trpc.blog.moments.useQuery({ limit: 4 });
   const dashboardQuery = trpc.blog.dashboard.useQuery();
-  const storageQuery = trpc.storage.status.useQuery();
   const commentsQuery = trpc.comments.recent.useQuery({ limit: 5 });
   const createComment = trpc.comments.create.useMutation({
     onSuccess: async () => {
@@ -123,7 +101,6 @@ export function HomeExperience() {
   }));
 
   const dashboard = dashboardQuery.data ?? getFallbackDashboard();
-  const storage = storageQuery.data ?? getFallbackStorage();
   const featured = posts.find((post) => post.featured) ?? posts[0];
 
   useEffect(() => {
@@ -164,7 +141,7 @@ export function HomeExperience() {
         posts={posts}
         t={t}
       />
-      <GallerySystemSection gallery={gallery} storage={storage} t={t} />
+      <GallerySystemSection gallery={gallery} t={t} />
       <CommentsSection
         commentBody={commentBody}
         commentEmail={commentEmail}

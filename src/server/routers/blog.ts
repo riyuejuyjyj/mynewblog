@@ -4,7 +4,6 @@ import { z } from "zod";
 import { hasDatabase } from "@/db";
 import { comments, moments, posts } from "@/db/schema";
 import { seedComments, seedMoments, seedPosts } from "@/content/seed";
-import { getR2Status } from "@/lib/r2";
 import {
   resolveStorageObjectUrl,
   rewriteStorageObjectUrlsInText,
@@ -44,6 +43,19 @@ function toMoment(moment: typeof seedMoments[number]) {
   return {
     ...moment,
     createdAt: moment.createdAt.toISOString(),
+  };
+}
+
+function getSeedDashboard() {
+  const views = seedPosts.reduce((total, post) => total + post.viewCount, 0);
+  const likes = seedPosts.reduce((total, post) => total + post.likeCount, 0);
+
+  return {
+    postCount: seedPosts.length,
+    momentCount: seedMoments.length,
+    commentCount: seedComments.length,
+    totalViews: views,
+    totalLikes: likes,
   };
 }
 
@@ -128,8 +140,6 @@ export const blogRouter = createTRPCRouter({
     }),
 
   dashboard: publicProcedure.query(async ({ ctx }) => {
-    const r2 = getR2Status();
-
     if (hasDatabase) {
       const [postStats] = await ctx.db
         .select({
@@ -151,46 +161,19 @@ export const blogRouter = createTRPCRouter({
         .where(eq(comments.status, "approved"))
         .catch(() => [{ count: 0 }]);
 
+      if (!postStats?.count && !momentStats?.count) {
+        return getSeedDashboard();
+      }
+
       return {
         postCount: postStats?.count ?? 0,
         momentCount: momentStats?.count ?? 0,
         commentCount: commentStats?.count ?? 0,
         totalViews: postStats?.views ?? 0,
         totalLikes: postStats?.likes ?? 0,
-        stack: [
-          "Next.js",
-          "tRPC",
-          "TanStack",
-          "Drizzle",
-          "Neon",
-          "Better Auth",
-          "Cloudflare R2",
-        ],
-        databaseMode: "Neon Postgres",
-        storageMode: r2.configured ? "Cloudflare R2" : "R2 pending",
       };
     }
 
-    const views = seedPosts.reduce((total, post) => total + post.viewCount, 0);
-    const likes = seedPosts.reduce((total, post) => total + post.likeCount, 0);
-
-    return {
-      postCount: seedPosts.length,
-      momentCount: seedMoments.length,
-      commentCount: seedComments.length,
-      totalViews: views,
-      totalLikes: likes,
-      stack: [
-        "Next.js",
-        "tRPC",
-        "TanStack",
-        "Drizzle",
-        "Neon",
-        "Better Auth",
-        "Cloudflare R2",
-      ],
-      databaseMode: hasDatabase ? "Neon Postgres" : "Seed preview",
-      storageMode: r2.configured ? "Cloudflare R2" : "R2 pending",
-    };
+    return getSeedDashboard();
   }),
 });

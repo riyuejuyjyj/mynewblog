@@ -1,22 +1,19 @@
 "use client";
 
-import { Camera, Cloud, Mail, PenLine, ShieldCheck } from "lucide-react";
+import { Camera, Images, MessageCircle, PenLine, Send } from "lucide-react";
 import Image from "next/image";
 
 import type { HomeCopy } from "@/components/home/copy";
 import { HoverLift, Reveal } from "@/components/home/motion-primitives";
-import type { StorageStatus } from "@/components/home/types";
 import { Button } from "@/components/ui/button";
 
 type GallerySystemSectionProps = {
   gallery: string[];
-  storage: StorageStatus;
   t: HomeCopy;
 };
 
 export function GallerySystemSection({
   gallery,
-  storage,
   t,
 }: GallerySystemSectionProps) {
   return (
@@ -57,21 +54,19 @@ export function GallerySystemSection({
         <div className="grid gap-4 sm:grid-cols-3">
           {[
             {
-              icon: ShieldCheck,
-              title: "Better Auth",
-              body: t.cards.auth,
-            },
-            {
-              icon: Cloud,
-              title: storage.provider,
-              body: storage.configured
-                ? `${t.cards.r2Ready} ${storage.bucket}.`
-                : t.cards.r2Pending,
-            },
-            {
               icon: PenLine,
-              title: "Creator Studio",
-              body: t.cards.studio,
+              title: t.cards.writing.title,
+              body: t.cards.writing.body,
+            },
+            {
+              icon: Images,
+              title: t.cards.gallery.title,
+              body: t.cards.gallery.body,
+            },
+            {
+              icon: MessageCircle,
+              title: t.cards.guestbook.title,
+              body: t.cards.guestbook.body,
             },
           ].map((item, index) => (
             <Reveal key={item.title} delay={0.08 + index * 0.1}>
@@ -90,14 +85,16 @@ export function GallerySystemSection({
 
         <HoverLift className="mt-6 flex flex-col gap-3 rounded-3xl border border-white/45 bg-slate-950 p-5 text-white shadow-xl shadow-slate-950/20 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-bold text-emerald-200">{t.newsletter}</p>
+            <p className="text-sm font-bold text-emerald-200">{t.closingKicker}</p>
             <h3 className="mt-1 text-2xl font-black tracking-[0]">
-              {t.newsletterTitle}
+              {t.closingTitle}
             </h3>
           </div>
-          <Button variant="soft">
-            <Mail className="size-4" />
-            {t.subscribe}
+          <Button asChild variant="soft">
+            <a href="#comments">
+              <Send className="size-4" />
+              {t.leaveMessage}
+            </a>
           </Button>
         </HoverLift>
       </Reveal>
