@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Clock3,
   Heart,
+  Rss,
   Search,
   Sparkles,
   Tag,
@@ -106,7 +107,15 @@ export function PostsIndex({ posts }: PostsIndexProps) {
             返回首页
           </Link>
         </Button>
-        <Badge>{visiblePosts.length} 篇文章</Badge>
+        <div className="flex items-center gap-2">
+          <Button asChild size="sm" variant="glass">
+            <Link href="/feed.xml">
+              <Rss className="size-4" />
+              RSS
+            </Link>
+          </Button>
+          <Badge>{visiblePosts.length} 篇文章</Badge>
+        </div>
       </nav>
 
       <header className="relative z-10 mx-auto mt-10 w-full max-w-7xl">
