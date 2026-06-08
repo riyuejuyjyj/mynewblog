@@ -30,6 +30,11 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function getAvatarLabel(value: string, fallback: string) {
+  const trimmed = value.trim();
+  return trimmed ? Array.from(trimmed)[0].toUpperCase() : fallback;
+}
+
 function buildCommentTree(comments: PublicComment[]) {
   const nodes = new Map<string, CommentNode>();
   const roots: CommentNode[] = [];
@@ -71,6 +76,7 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
   const [url, setUrl] = useState("");
   const [body, setBody] = useState("");
   const [replyTargetId, setReplyTargetId] = useState<string | null>(null);
+  const [commentComposerOpen, setCommentComposerOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const createComment = trpc.comments.create.useMutation({
@@ -78,6 +84,7 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
       setUrl("");
       setBody("");
       setReplyTargetId(null);
+      setCommentComposerOpen(false);
       setSubmitted(true);
       await utils.comments.byPost.invalidate({ postSlug, limit: 50 });
       await utils.comments.recent.invalidate();
@@ -91,12 +98,14 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
 
   function startReply(comment: PublicComment) {
     setReplyTargetId(comment.id);
+    setCommentComposerOpen(false);
     setBody("");
     setSubmitted(false);
   }
 
-  function cancelReply() {
+  function cancelComposer() {
     setReplyTargetId(null);
+    setCommentComposerOpen(false);
     setBody("");
   }
 
@@ -115,84 +124,111 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
   }
 
   function renderComposer(compact = false) {
+    const expanded = compact || commentComposerOpen || body.trim().length > 0;
+    const isReply = Boolean(replyTarget);
+
     return (
       <form
         onSubmit={submitComment}
         className={cn(
-          "space-y-3",
+          "flex gap-3",
           compact
-            ? "rounded-[1.25rem] border border-coral-200/70 bg-coral-50/72 p-4 shadow-inner dark:border-coral-200/15 dark:bg-coral-400/10"
-            : "mt-6",
+            ? "rounded-2xl bg-white/34 px-3 py-3 dark:bg-white/8"
+            : "mt-5",
         )}
       >
-        {replyTarget ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white/58 px-4 py-3 text-xs font-black text-slate-600 dark:bg-white/10 dark:text-slate-200">
-            <span className="inline-flex min-w-0 items-center gap-2">
-              <CornerDownRight className="size-4 shrink-0 text-coral-500" />
-              <span className="min-w-0 truncate">
-                回复 {replyTarget.authorName}
-              </span>
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={cancelReply}
-            >
-              <X className="size-4" />
-              取消
-            </Button>
-          </div>
-        ) : null}
+        <span className="mt-1 grid size-9 shrink-0 place-items-center rounded-full bg-slate-950 text-sm font-black text-white shadow-sm dark:bg-white dark:text-slate-950">
+          {getAvatarLabel(name, isReply ? "回" : "评")}
+        </span>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <input
+        <div className="min-w-0 flex-1">
+          {replyTarget ? (
+            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-black text-slate-500 dark:text-slate-300">
+              <span className="inline-flex min-w-0 items-center gap-1.5">
+                <CornerDownRight className="size-3.5 shrink-0 text-coral-500" />
+                <span className="min-w-0 truncate">
+                  回复 {replyTarget.authorName}
+                </span>
+              </span>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-slate-500 transition hover:bg-white/55 hover:text-slate-950 dark:hover:bg-white/10 dark:hover:text-white"
+                onClick={cancelComposer}
+              >
+                <X className="size-3.5" />
+                取消
+              </button>
+            </div>
+          ) : null}
+
+          <textarea
             required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="昵称"
-            className="studio-input"
+            rows={expanded ? (compact ? 2 : 3) : 1}
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            onFocus={() => setCommentComposerOpen(true)}
+            placeholder={
+              isReply ? `回复 ${replyTarget?.authorName ?? "这条评论"}` : "添加评论..."
+            }
+            className={cn(
+              "w-full resize-none bg-transparent px-0 py-2 text-sm font-semibold leading-6 outline-none transition placeholder:text-slate-500 dark:placeholder:text-slate-400",
+              "border-b border-slate-300/80 focus:border-slate-950 dark:border-white/20 dark:focus:border-white",
+              expanded ? "min-h-20" : "h-10 overflow-hidden",
+            )}
           />
-          <input
-            required
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="邮箱，不会公开"
-            className="studio-input"
-          />
+
+          {expanded ? (
+            <>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <input
+                  required
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="昵称"
+                  className="studio-input h-10 rounded-xl px-3 py-2 text-sm"
+                />
+                <input
+                  required
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="邮箱，不会公开"
+                  className="studio-input h-10 rounded-xl px-3 py-2 text-sm"
+                />
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(event) => setUrl(event.target.value)}
+                  placeholder="个人链接，可选"
+                  className="studio-input h-10 rounded-xl px-3 py-2 text-sm sm:col-span-2"
+                />
+              </div>
+
+              <div className="mt-3 flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelComposer}
+                >
+                  取消
+                </Button>
+                <Button
+                  disabled={createComment.isPending || body.trim().length === 0}
+                  size="sm"
+                  type="submit"
+                >
+                  <Send className="size-4" />
+                  {createComment.isPending
+                    ? "发送中..."
+                    : isReply
+                      ? "回复"
+                      : "评论"}
+                </Button>
+              </div>
+            </>
+          ) : null}
         </div>
-        <input
-          type="url"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          placeholder="个人链接，可选"
-          className="studio-input"
-        />
-        <textarea
-          required
-          rows={compact ? 4 : 5}
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          placeholder={
-            replyTarget
-              ? `写下回复 ${replyTarget.authorName} 的一句话`
-              : "写下你的评论"
-          }
-          className="studio-input resize-none leading-7"
-        />
-        <Button
-          className="w-full"
-          disabled={createComment.isPending}
-          type="submit"
-        >
-          <Send className="size-4" />
-          {createComment.isPending
-            ? "发送中..."
-            : replyTarget
-              ? "提交回复"
-              : "发表评论"}
-        </Button>
       </form>
     );
   }
@@ -204,39 +240,53 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
       <article
         key={comment.id}
         className={cn(
-          "rounded-[1.35rem] border border-white/45 bg-white/42 p-5 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/10",
-          depth > 0 ? "border-l-coral-300/80 dark:border-l-coral-200/40" : "",
+          "group",
+          depth > 0
+            ? "border-l border-slate-200/80 pl-4 dark:border-white/12"
+            : "",
         )}
-        style={{
-          marginLeft: depth > 0 ? Math.min(depth, 3) * 18 : 0,
-        }}
       >
-        <div className="flex items-center justify-between gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          <span>{comment.authorName}</span>
-          <span>{formatDate(comment.createdAt)}</span>
-        </div>
-        <p className="mt-3 text-sm leading-7 text-slate-700 dark:text-slate-200">
-          {comment.body}
-        </p>
-        <div className="mt-4 flex justify-end">
-          <Button
-            type="button"
-            variant={isReplying ? "soft" : "ghost"}
-            size="sm"
-            onClick={() => startReply(comment)}
-          >
-            <MessageCircle className="size-4" />
-            回复
-          </Button>
-        </div>
+        <div className="flex gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white/58 text-sm font-black text-slate-700 shadow-sm ring-1 ring-white/55 dark:bg-white/12 dark:text-slate-100 dark:ring-white/10">
+            {getAvatarLabel(comment.authorName, "访")}
+          </span>
 
-        {isReplying ? <div className="mt-4">{renderComposer(true)}</div> : null}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-sm font-black text-slate-800 dark:text-slate-100">
+                {comment.authorName}
+              </span>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {formatDate(comment.createdAt)}
+              </span>
+            </div>
 
-        {comment.replies.length > 0 ? (
-          <div className="mt-4 space-y-4">
-            {comment.replies.map((reply) => renderComment(reply, depth + 1))}
+            <p className="mt-1.5 text-sm leading-7 text-slate-700 dark:text-slate-200">
+              {comment.body}
+            </p>
+
+            <div className="mt-1.5 flex items-center gap-2">
+              <Button
+                type="button"
+                variant={isReplying ? "soft" : "ghost"}
+                size="sm"
+                onClick={() => startReply(comment)}
+              >
+                回复
+              </Button>
+            </div>
+
+            {isReplying ? (
+              <div className="mt-2">{renderComposer(true)}</div>
+            ) : null}
+
+            {comment.replies.length > 0 ? (
+              <div className="mt-4 space-y-4">
+                {comment.replies.map((reply) => renderComment(reply, depth + 1))}
+              </div>
+            ) : null}
           </div>
-        ) : null}
+        </div>
       </article>
     );
   }
@@ -244,29 +294,24 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
   return (
     <section
       id="comments"
-      className="relative z-10 mx-auto mt-6 w-full max-w-6xl rounded-[1.6rem] border border-white/45 bg-white/58 p-5 shadow-xl shadow-slate-950/10 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/58 sm:p-6"
+      className="relative z-10 mx-auto mt-6 w-full max-w-6xl rounded-[1.25rem] border border-white/40 bg-white/46 p-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/44 sm:p-5"
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="grid size-12 place-items-center rounded-2xl bg-coral-100 text-coral-700 dark:bg-coral-400/15 dark:text-coral-200">
-            <MessageCircle className="size-6" />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-coral-100 text-coral-700 dark:bg-coral-400/15 dark:text-coral-200">
+            <MessageCircle className="size-5" />
           </span>
-          <div>
-            <p className="text-xs font-black text-slate-500 dark:text-slate-300">
-              文章评论
-            </p>
-            <h2 className="text-2xl font-black tracking-[0]">评论</h2>
-          </div>
+          <h2 className="text-xl font-black tracking-[0]">评论</h2>
         </div>
 
-        <span className="self-start rounded-full bg-white/45 px-3 py-1 text-xs font-black text-slate-600 dark:bg-white/10 dark:text-slate-300 lg:self-auto">
-          {comments.length} 条评论
+        <span className="rounded-full bg-white/55 px-3 py-1 text-xs font-black text-slate-600 dark:bg-white/10 dark:text-slate-300">
+          {comments.length} 条
         </span>
       </div>
 
       {submitted ? (
         <p
-          className="mt-5 flex items-center gap-2 rounded-2xl bg-emerald-100 px-4 py-3 text-sm font-black text-emerald-950 dark:bg-emerald-400/15 dark:text-emerald-100"
+          className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-100 px-3 py-2 text-sm font-black text-emerald-950 dark:bg-emerald-400/15 dark:text-emerald-100"
           aria-live="polite"
         >
           <CheckCircle2 className="size-4" />
@@ -276,25 +321,14 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
 
       {!replyTarget ? renderComposer() : null}
 
-      <div className="mt-8 border-t border-white/45 pt-6 dark:border-white/10">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-black text-coral-700 dark:text-coral-200">
-              评论
-            </p>
-            <h3 className="mt-1 text-xl font-black tracking-[0]">全部评论</h3>
-          </div>
-        </div>
+      <div className="mt-6 space-y-5 border-t border-white/40 pt-5 dark:border-white/10">
+        {comments.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-white/45 p-6 text-center text-sm font-bold text-slate-400 dark:border-white/10">
+            还没有评论，来写第一条。
+          </p>
+        ) : null}
 
-        <div className="mt-5 space-y-4">
-          {comments.length === 0 ? (
-            <p className="rounded-3xl border border-dashed border-white/45 p-8 text-center text-sm font-bold text-slate-400 dark:border-white/10">
-              还没有评论，来写第一条。
-            </p>
-          ) : null}
-
-          {commentTree.map((comment) => renderComment(comment))}
-        </div>
+        {commentTree.map((comment) => renderComment(comment))}
       </div>
     </section>
   );
