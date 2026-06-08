@@ -77,6 +77,7 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
   const [body, setBody] = useState("");
   const [replyTargetId, setReplyTargetId] = useState<string | null>(null);
   const [commentComposerOpen, setCommentComposerOpen] = useState(false);
+  const [showMobileUrlField, setShowMobileUrlField] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const createComment = trpc.comments.create.useMutation({
@@ -85,6 +86,7 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
       setBody("");
       setReplyTargetId(null);
       setCommentComposerOpen(false);
+      setShowMobileUrlField(false);
       setSubmitted(true);
       await utils.comments.byPost.invalidate({ postSlug, limit: 50 });
       await utils.comments.recent.invalidate();
@@ -99,6 +101,8 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
   function startReply(comment: PublicComment) {
     setReplyTargetId(comment.id);
     setCommentComposerOpen(false);
+    setShowMobileUrlField(false);
+    setUrl("");
     setBody("");
     setSubmitted(false);
   }
@@ -106,6 +110,8 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
   function cancelComposer() {
     setReplyTargetId(null);
     setCommentComposerOpen(false);
+    setShowMobileUrlField(false);
+    setUrl("");
     setBody("");
   }
 
@@ -200,8 +206,25 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
                   placeholder="个人链接，可选"
-                  className="studio-input h-10 min-w-0 rounded-xl px-3 py-2 text-sm md:col-span-2"
+                  className="studio-input hidden h-10 min-w-0 rounded-xl px-3 py-2 text-sm md:col-span-2 md:block"
                 />
+                {showMobileUrlField ? (
+                  <input
+                    type="url"
+                    value={url}
+                    onChange={(event) => setUrl(event.target.value)}
+                    placeholder="个人链接，可选"
+                    className="studio-input h-10 min-w-0 rounded-xl px-3 py-2 text-sm md:hidden"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="inline-flex h-10 items-center justify-center rounded-xl border border-dashed border-white/55 bg-white/30 px-3 text-sm font-black text-slate-500 transition hover:bg-white/55 hover:text-slate-900 dark:border-white/12 dark:bg-white/8 dark:text-slate-300 dark:hover:bg-white/12 dark:hover:text-white md:hidden"
+                    onClick={() => setShowMobileUrlField(true)}
+                  >
+                    添加个人链接
+                  </button>
+                )}
               </div>
 
               <div className="mt-3 flex flex-wrap justify-end gap-2">
