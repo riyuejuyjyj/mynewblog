@@ -6,7 +6,13 @@ import {
   getApprovedCommentsByPost,
   getPublishedPostBySlug,
   getPublishedPosts,
+  type PublicPost,
 } from "@/lib/blog-data";
+import {
+  absoluteSiteUrl,
+  siteConfig,
+  toAbsoluteUrl,
+} from "@/lib/site-metadata";
 
 type PostPageProps = {
   params: Promise<{
@@ -22,19 +28,82 @@ export async function generateMetadata({
 
   if (!post) {
     return {
-      title: "Post not found | MyNewBlog",
+      title: "Post not found",
     };
   }
 
+  const canonicalPath = `/posts/${post.slug}`;
+  const imageUrl = toAbsoluteUrl(post.coverImage);
+
   return {
-    title: `${post.title} | MyNewBlog`,
+    alternates: {
+      canonical: canonicalPath,
+    },
+    authors: [{ name: siteConfig.author }],
     description: post.excerpt,
+    keywords: post.tags,
     openGraph: {
+      authors: [siteConfig.author],
       description: post.excerpt,
-      images: [post.coverImage],
+      images: imageUrl
+        ? [
+            {
+              alt: post.title,
+              url: imageUrl,
+            },
+          ]
+        : undefined,
+      locale: siteConfig.locale,
+      modifiedTime: post.updatedAt ?? post.publishedAt,
+      publishedTime: post.publishedAt,
+      siteName: siteConfig.name,
+      tags: post.tags,
       title: post.title,
       type: "article",
+      url: canonicalPath,
     },
+    title: post.title,
+    twitter: {
+      card: "summary_large_image",
+      description: post.excerpt,
+      images: imageUrl ? [imageUrl] : undefined,
+      title: post.title,
+    },
+  };
+}
+
+function stringifyJsonLd(value: unknown) {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
+function getArticleJsonLd(post: PublicPost) {
+  const url = absoluteSiteUrl(`/posts/${post.slug}`);
+  const imageUrl = toAbsoluteUrl(post.coverImage);
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    articleSection: post.category,
+    author: {
+      "@type": "Organization",
+      name: siteConfig.author,
+    },
+    dateModified: post.updatedAt ?? post.publishedAt,
+    datePublished: post.publishedAt,
+    description: post.excerpt,
+    headline: post.title,
+    image: imageUrl ? [imageUrl] : undefined,
+    inLanguage: "zh-CN",
+    keywords: post.tags,
+    mainEntityOfPage: {
+      "@id": url,
+      "@type": "WebPage",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: siteConfig.author,
+    },
+    url,
   };
 }
 
@@ -59,6 +128,12 @@ export default async function PostPage({ params }: PostPageProps) {
 
   return (
     <>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: stringifyJsonLd(getArticleJsonLd(post)),
+        }}
+        type="application/ld+json"
+      />
       <PostArticle
         comments={comments}
         nextPost={nextPost}
