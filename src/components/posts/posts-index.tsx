@@ -20,9 +20,15 @@ import { DynamicBackdrop } from "@/components/dynamic-backdrop";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { PublicPost } from "@/lib/blog-data";
+import { getCategoryPath, getTagPath } from "@/lib/blog-taxonomy";
 
 type PostsIndexProps = {
+  description?: string;
+  eyebrow?: string;
+  initialCategory?: string;
+  initialTag?: string;
   posts: PublicPost[];
+  title?: string;
 };
 
 const allFilter = "全部";
@@ -51,9 +57,18 @@ function includesKeyword(post: PublicPost, keyword: string) {
   return text.includes(keyword);
 }
 
-export function PostsIndex({ posts }: PostsIndexProps) {
-  const [activeCategory, setActiveCategory] = useState(allFilter);
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+export function PostsIndex({
+  description = "研究、工程、阅读和日常碎片按时间收拢，也可以直接按分类、标签和关键词进入。",
+  eyebrow = "文章归档",
+  initialCategory,
+  initialTag,
+  posts,
+  title = "把所有公开笔记放在一张可检索的书桌上。",
+}: PostsIndexProps) {
+  const [activeCategory, setActiveCategory] = useState(
+    initialCategory ?? allFilter,
+  );
+  const [activeTag, setActiveTag] = useState<string | null>(initialTag ?? null);
   const [query, setQuery] = useState("");
 
   const categories = useMemo(
@@ -123,13 +138,13 @@ export function PostsIndex({ posts }: PostsIndexProps) {
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-white/45 bg-white/42 px-4 py-2 text-xs font-black text-coral-700 shadow-lg shadow-slate-900/10 backdrop-blur-xl dark:border-white/10 dark:bg-white/10 dark:text-coral-100">
               <Sparkles className="size-4" />
-              文章归档
+              {eyebrow}
             </p>
             <h1 className="mt-5 max-w-4xl text-balance text-4xl font-black leading-[1.06] sm:text-5xl lg:text-6xl">
-              把所有公开笔记放在一张可检索的书桌上。
+              {title}
             </h1>
             <p className="mt-5 max-w-3xl text-pretty text-base leading-8 text-slate-700 dark:text-slate-200 sm:text-lg">
-              研究、工程、阅读和日常碎片按时间收拢，也可以直接按分类、标签和关键词进入。
+              {description}
             </p>
           </div>
 
@@ -231,8 +246,12 @@ export function PostsIndex({ posts }: PostsIndexProps) {
               className="group overflow-hidden rounded-[1.75rem] border border-white/45 bg-white/52 shadow-xl shadow-slate-950/10 backdrop-blur-2xl transition duration-300 hover:-translate-y-1 hover:bg-white/70 dark:border-white/10 dark:bg-slate-900/52 dark:hover:bg-slate-900/72"
               key={post.id}
             >
-              <Link className="grid gap-0 md:grid-cols-[280px_minmax(0,1fr)]" href={`/posts/${post.slug}`}>
-                <div className="relative aspect-[16/10] overflow-hidden md:aspect-auto md:min-h-56">
+              <div className="grid gap-0 md:grid-cols-[280px_minmax(0,1fr)]">
+                <Link
+                  aria-label={`阅读：${post.title}`}
+                  className="relative aspect-[16/10] overflow-hidden md:aspect-auto md:min-h-56"
+                  href={`/posts/${post.slug}`}
+                >
                   <Image
                     alt={post.title}
                     className="object-cover transition duration-700 ease-out group-hover:scale-105"
@@ -240,11 +259,13 @@ export function PostsIndex({ posts }: PostsIndexProps) {
                     sizes="(min-width: 1024px) 280px, 100vw"
                     src={post.coverImage}
                   />
-                </div>
+                </Link>
                 <div className="flex min-w-0 flex-col justify-between p-5 sm:p-6">
                   <div>
                     <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-300">
-                      <Badge>{post.category}</Badge>
+                      <Link href={getCategoryPath(post.category)}>
+                        <Badge>{post.category}</Badge>
+                      </Link>
                       {post.featured ? <Badge>精选</Badge> : null}
                       <span className="inline-flex items-center gap-1">
                         <CalendarDays className="size-3.5" />
@@ -259,9 +280,11 @@ export function PostsIndex({ posts }: PostsIndexProps) {
                         {post.likeCount}
                       </span>
                     </div>
-                    <h2 className="mt-4 text-2xl font-black leading-tight tracking-[0] sm:text-3xl">
-                      {post.title}
-                    </h2>
+                    <Link href={`/posts/${post.slug}`}>
+                      <h2 className="mt-4 text-2xl font-black leading-tight tracking-[0] transition group-hover:text-coral-700 dark:group-hover:text-coral-100 sm:text-3xl">
+                        {post.title}
+                      </h2>
+                    </Link>
                     <p className="mt-3 line-clamp-2 text-sm leading-7 text-slate-600 dark:text-slate-300 sm:text-base">
                       {post.excerpt}
                     </p>
@@ -269,21 +292,25 @@ export function PostsIndex({ posts }: PostsIndexProps) {
                   <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap gap-2">
                       {post.tags.slice(0, 4).map((tag) => (
-                        <span
+                        <Link
                           className="rounded-full bg-slate-950/5 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300"
+                          href={getTagPath(tag)}
                           key={tag}
                         >
                           {tag}
-                        </span>
+                        </Link>
                       ))}
                     </div>
-                    <span className="inline-flex items-center gap-1 text-sm font-black text-coral-700 transition group-hover:translate-x-1 dark:text-coral-100">
+                    <Link
+                      className="inline-flex items-center gap-1 text-sm font-black text-coral-700 transition hover:translate-x-1 dark:text-coral-100"
+                      href={`/posts/${post.slug}`}
+                    >
                       阅读
                       <ArrowRight className="size-4" />
-                    </span>
+                    </Link>
                   </div>
                 </div>
-              </Link>
+              </div>
             </article>
           ))}
 
@@ -341,15 +368,14 @@ export function PostsIndex({ posts }: PostsIndexProps) {
                 const count = posts.filter((post) => post.category === category).length;
 
                 return (
-                  <button
+                  <Link
                     className="flex w-full items-center justify-between rounded-2xl bg-white/46 px-4 py-3 text-left text-sm font-bold transition hover:bg-white/72 dark:bg-white/10 dark:hover:bg-white/15"
+                    href={getCategoryPath(category)}
                     key={category}
-                    onClick={() => setActiveCategory(category)}
-                    type="button"
                   >
                     <span>{category}</span>
                     <span className="text-slate-400">{count}</span>
-                  </button>
+                  </Link>
                 );
               })}
             </div>
