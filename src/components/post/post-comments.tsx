@@ -131,19 +131,19 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
       <form
         onSubmit={submitComment}
         className={cn(
-          "flex gap-3",
+          "flex gap-2.5 sm:gap-3",
           compact
-            ? "rounded-2xl bg-white/34 px-3 py-3 dark:bg-white/8"
-            : "mt-5",
+            ? "rounded-xl bg-white/34 px-2.5 py-2.5 dark:bg-white/8 sm:rounded-2xl sm:px-3 sm:py-3"
+            : "mt-4 sm:mt-5",
         )}
       >
-        <span className="mt-1 grid size-9 shrink-0 place-items-center rounded-full bg-slate-950 text-sm font-black text-white shadow-sm dark:bg-white dark:text-slate-950">
+        <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-slate-950 text-xs font-black text-white shadow-sm dark:bg-white dark:text-slate-950 sm:size-9 sm:text-sm">
           {getAvatarLabel(name, isReply ? "回" : "评")}
         </span>
 
         <div className="min-w-0 flex-1">
           {replyTarget ? (
-            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-black text-slate-500 dark:text-slate-300">
+            <div className="mb-1.5 flex flex-wrap items-start justify-between gap-2 text-xs font-black text-slate-500 dark:text-slate-300 sm:items-center">
               <span className="inline-flex min-w-0 items-center gap-1.5">
                 <CornerDownRight className="size-3.5 shrink-0 text-coral-500" />
                 <span className="min-w-0 truncate">
@@ -173,19 +173,19 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
             className={cn(
               "w-full resize-none bg-transparent px-0 py-2 text-sm font-semibold leading-6 outline-none transition placeholder:text-slate-500 dark:placeholder:text-slate-400",
               "border-b border-slate-300/80 focus:border-slate-950 dark:border-white/20 dark:focus:border-white",
-              expanded ? "min-h-20" : "h-10 overflow-hidden",
+              expanded ? "min-h-16 sm:min-h-20" : "h-10 overflow-hidden",
             )}
           />
 
           {expanded ? (
             <>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
                 <input
                   required
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="昵称"
-                  className="studio-input h-10 rounded-xl px-3 py-2 text-sm"
+                  className="studio-input h-10 min-w-0 rounded-xl px-3 py-2 text-sm"
                 />
                 <input
                   required
@@ -193,18 +193,18 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="邮箱，不会公开"
-                  className="studio-input h-10 rounded-xl px-3 py-2 text-sm"
+                  className="studio-input h-10 min-w-0 rounded-xl px-3 py-2 text-sm"
                 />
                 <input
                   type="url"
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
                   placeholder="个人链接，可选"
-                  className="studio-input h-10 rounded-xl px-3 py-2 text-sm sm:col-span-2"
+                  className="studio-input h-10 min-w-0 rounded-xl px-3 py-2 text-sm md:col-span-2"
                 />
               </div>
 
-              <div className="mt-3 flex justify-end gap-2">
+              <div className="mt-3 flex flex-wrap justify-end gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -242,12 +242,12 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
         className={cn(
           "group",
           depth > 0
-            ? "border-l border-slate-200/80 pl-4 dark:border-white/12"
+            ? "border-l border-slate-200/80 pl-2.5 dark:border-white/12 sm:pl-4"
             : "",
         )}
       >
-        <div className="flex gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white/58 text-sm font-black text-slate-700 shadow-sm ring-1 ring-white/55 dark:bg-white/12 dark:text-slate-100 dark:ring-white/10">
+        <div className="flex gap-2.5 sm:gap-3">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white/58 text-xs font-black text-slate-700 shadow-sm ring-1 ring-white/55 dark:bg-white/12 dark:text-slate-100 dark:ring-white/10 sm:size-9 sm:text-sm">
             {getAvatarLabel(comment.authorName, "访")}
           </span>
 
@@ -261,7 +261,7 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
               </span>
             </div>
 
-            <p className="mt-1.5 text-sm leading-7 text-slate-700 dark:text-slate-200">
+            <p className="mt-1.5 break-words text-sm leading-7 text-slate-700 dark:text-slate-200">
               {comment.body}
             </p>
 
@@ -294,24 +294,24 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
   return (
     <section
       id="comments"
-      className="relative z-10 mx-auto mt-6 w-full max-w-6xl rounded-[1.25rem] border border-white/40 bg-white/46 p-4 shadow-xl shadow-slate-950/8 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/44 sm:p-5"
+      className="relative z-10 mx-auto mt-6 w-full max-w-6xl rounded-2xl border border-white/40 bg-white/46 p-3 shadow-xl shadow-slate-950/8 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/44 sm:rounded-[1.25rem] sm:p-5"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-coral-100 text-coral-700 dark:bg-coral-400/15 dark:text-coral-200">
-            <MessageCircle className="size-5" />
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-coral-100 text-coral-700 dark:bg-coral-400/15 dark:text-coral-200 sm:size-10">
+            <MessageCircle className="size-4 sm:size-5" />
           </span>
-          <h2 className="text-xl font-black tracking-[0]">评论</h2>
+          <h2 className="text-lg font-black tracking-[0] sm:text-xl">评论</h2>
         </div>
 
-        <span className="rounded-full bg-white/55 px-3 py-1 text-xs font-black text-slate-600 dark:bg-white/10 dark:text-slate-300">
+        <span className="shrink-0 rounded-full bg-white/55 px-2.5 py-1 text-xs font-black text-slate-600 dark:bg-white/10 dark:text-slate-300 sm:px-3">
           {comments.length} 条
         </span>
       </div>
 
       {submitted ? (
         <p
-          className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-100 px-3 py-2 text-sm font-black text-emerald-950 dark:bg-emerald-400/15 dark:text-emerald-100"
+          className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-100 px-3 py-2 text-sm font-black text-emerald-950 dark:bg-emerald-400/15 dark:text-emerald-100 sm:mt-4"
           aria-live="polite"
         >
           <CheckCircle2 className="size-4" />
@@ -321,9 +321,9 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
 
       {!replyTarget ? renderComposer() : null}
 
-      <div className="mt-6 space-y-5 border-t border-white/40 pt-5 dark:border-white/10">
+      <div className="mt-5 space-y-4 border-t border-white/40 pt-4 dark:border-white/10 sm:mt-6 sm:space-y-5 sm:pt-5">
         {comments.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-white/45 p-6 text-center text-sm font-bold text-slate-400 dark:border-white/10">
+          <p className="rounded-2xl border border-dashed border-white/45 p-5 text-center text-sm font-bold text-slate-400 dark:border-white/10 sm:p-6">
             还没有评论，来写第一条。
           </p>
         ) : null}
