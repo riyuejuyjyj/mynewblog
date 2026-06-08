@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { DynamicBackdrop } from "@/components/dynamic-backdrop";
 import { Badge } from "@/components/ui/badge";
@@ -26,8 +26,10 @@ type PostsIndexProps = {
   description?: string;
   eyebrow?: string;
   initialCategory?: string;
+  initialQuery?: string;
   initialTag?: string;
   posts: PublicPost[];
+  syncUrl?: boolean;
   title?: string;
 };
 
@@ -57,19 +59,72 @@ function includesKeyword(post: PublicPost, keyword: string) {
   return text.includes(keyword);
 }
 
+function readBrowserFilters() {
+  const params = new URLSearchParams(window.location.search);
+
+  return {
+    category: params.get("category") || allFilter,
+    query: params.get("q") ?? "",
+    tag: params.get("tag"),
+  };
+}
+
+function writeBrowserFilters({
+  category,
+  query,
+  tag,
+}: {
+  category: string;
+  query: string;
+  tag: string | null;
+}) {
+  const params = new URLSearchParams(window.location.search);
+  const trimmedQuery = query.trim();
+
+  if (category === allFilter) {
+    params.delete("category");
+  } else {
+    params.set("category", category);
+  }
+
+  if (tag) {
+    params.set("tag", tag);
+  } else {
+    params.delete("tag");
+  }
+
+  if (trimmedQuery) {
+    params.set("q", trimmedQuery);
+  } else {
+    params.delete("q");
+  }
+
+  const nextSearch = params.toString();
+  const nextPath = nextSearch
+    ? `${window.location.pathname}?${nextSearch}`
+    : window.location.pathname;
+  const currentPath = `${window.location.pathname}${window.location.search}`;
+
+  if (nextPath !== currentPath) {
+    window.history.replaceState(null, "", nextPath);
+  }
+}
+
 export function PostsIndex({
   description = "研究、工程、阅读和日常碎片按时间收拢，也可以直接按分类、标签和关键词进入。",
   eyebrow = "文章归档",
   initialCategory,
+  initialQuery,
   initialTag,
   posts,
+  syncUrl = false,
   title = "把所有公开笔记放在一张可检索的书桌上。",
 }: PostsIndexProps) {
   const [activeCategory, setActiveCategory] = useState(
     initialCategory ?? allFilter,
   );
   const [activeTag, setActiveTag] = useState<string | null>(initialTag ?? null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery ?? "");
 
   const categories = useMemo(
     () => [allFilter, ...Array.from(new Set(posts.map((post) => post.category)))],
@@ -110,6 +165,31 @@ export function PostsIndex({
     setActiveTag(null);
     setQuery("");
   }
+
+  useEffect(() => {
+    if (!syncUrl) return;
+
+    function syncFromHistory() {
+      const filters = readBrowserFilters();
+      setActiveCategory(filters.category);
+      setActiveTag(filters.tag);
+      setQuery(filters.query);
+    }
+
+    window.addEventListener("popstate", syncFromHistory);
+
+    return () => window.removeEventListener("popstate", syncFromHistory);
+  }, [syncUrl]);
+
+  useEffect(() => {
+    if (!syncUrl) return;
+
+    writeBrowserFilters({
+      category: activeCategory,
+      query,
+      tag: activeTag,
+    });
+  }, [activeCategory, activeTag, query, syncUrl]);
 
   return (
     <main className="home-shell relative min-h-screen overflow-hidden px-4 pb-16 pt-5 text-slate-950 dark:text-white sm:px-6 lg:px-8">

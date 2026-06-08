@@ -4,6 +4,24 @@ import { PostsIndex } from "@/components/posts/posts-index";
 import { getPublishedPosts } from "@/lib/blog-data";
 import { siteConfig } from "@/lib/site-metadata";
 
+type PostsPageProps = {
+  searchParams: Promise<{
+    category?: string | string[];
+    q?: string | string[];
+    tag?: string | string[];
+  }>;
+};
+
+function firstSearchParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function cleanSearchParam(value: string | string[] | undefined) {
+  const param = firstSearchParam(value)?.trim();
+
+  return param || undefined;
+}
+
 export const metadata: Metadata = {
   alternates: {
     canonical: "/posts",
@@ -28,8 +46,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function PostsPage() {
+export default async function PostsPage({ searchParams }: PostsPageProps) {
+  const params = await searchParams;
   const posts = await getPublishedPosts(100);
 
-  return <PostsIndex posts={posts} />;
+  return (
+    <PostsIndex
+      initialCategory={cleanSearchParam(params.category)}
+      initialQuery={cleanSearchParam(params.q)}
+      initialTag={cleanSearchParam(params.tag)}
+      posts={posts}
+      syncUrl
+    />
+  );
 }
