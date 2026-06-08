@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import { Link2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { createMarkdownHeadingId } from "@/lib/markdown";
@@ -94,6 +95,7 @@ export function MarkdownPreview({ value }: { value: string }) {
   const lines = value.split("\n");
   const blocks: ReactNode[] = [];
   let index = 0;
+  let headingIndex = 0;
 
   while (index < lines.length) {
     const line = lines[index];
@@ -133,13 +135,22 @@ export function MarkdownPreview({ value }: { value: string }) {
 
     if (trimmed.startsWith("### ")) {
       const text = trimmed.slice(4);
+      const headingId = createMarkdownHeadingId(text, headingIndex);
+      headingIndex += 1;
 
       blocks.push(
         <h3
-          id={createMarkdownHeadingId(text, index)}
+          id={headingId}
           key={`h3-${index}`}
-          className="mt-8 scroll-mt-28 text-2xl font-black tracking-[0]"
+          className="group mt-8 flex scroll-mt-28 items-center gap-2 text-2xl font-black tracking-[0]"
         >
+          <a
+            href={`#${headingId}`}
+            aria-label={`跳转到 ${text}`}
+            className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+          >
+            <Link2 className="size-4" />
+          </a>
           {renderInline(text)}
         </h3>,
       );
@@ -149,13 +160,22 @@ export function MarkdownPreview({ value }: { value: string }) {
 
     if (trimmed.startsWith("## ")) {
       const text = trimmed.slice(3);
+      const headingId = createMarkdownHeadingId(text, headingIndex);
+      headingIndex += 1;
 
       blocks.push(
         <h2
-          id={createMarkdownHeadingId(text, index)}
+          id={headingId}
           key={`h2-${index}`}
-          className="mt-10 scroll-mt-28 text-3xl font-black tracking-[0]"
+          className="group mt-10 flex scroll-mt-28 items-center gap-2 text-3xl font-black tracking-[0]"
         >
+          <a
+            href={`#${headingId}`}
+            aria-label={`跳转到 ${text}`}
+            className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+          >
+            <Link2 className="size-4" />
+          </a>
           {renderInline(text)}
         </h2>,
       );
@@ -165,13 +185,22 @@ export function MarkdownPreview({ value }: { value: string }) {
 
     if (trimmed.startsWith("# ")) {
       const text = trimmed.slice(2);
+      const headingId = createMarkdownHeadingId(text, headingIndex);
+      headingIndex += 1;
 
       blocks.push(
         <h1
-          id={createMarkdownHeadingId(text, index)}
+          id={headingId}
           key={`h1-${index}`}
-          className="mt-10 scroll-mt-28 text-4xl font-black tracking-[0]"
+          className="group mt-10 flex scroll-mt-28 items-center gap-2 text-4xl font-black tracking-[0]"
         >
+          <a
+            href={`#${headingId}`}
+            aria-label={`跳转到 ${text}`}
+            className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+          >
+            <Link2 className="size-4" />
+          </a>
           {renderInline(text)}
         </h1>,
       );

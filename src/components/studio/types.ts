@@ -62,6 +62,7 @@ export type StudioMediaAsset = {
 
 export type StudioComment = {
   id: string;
+  parentId?: string | null;
   authorName: string;
   authorEmail?: string;
   authorUrl?: string | null;

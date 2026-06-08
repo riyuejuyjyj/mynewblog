@@ -149,6 +149,12 @@ export function PostArticle({
                   <Clock3 className="size-3.5" />
                   发布日期：{formatShortDate(post.publishedAt)}
                 </span>
+                {post.updatedAt ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-950/5 px-3 py-1.5 dark:bg-white/10">
+                    <CalendarDays className="size-3.5" />
+                    更新：{formatShortDate(post.updatedAt)}
+                  </span>
+                ) : null}
                 {post.tags.map((tag) => (
                   <span
                     className="inline-flex items-center gap-1 rounded-full bg-coral-100/70 px-3 py-1.5 text-coral-700 dark:bg-coral-400/12 dark:text-coral-100"

@@ -90,10 +90,13 @@ export function HomeExperience() {
     commentsQuery.data ??
     seedComments.map((comment) => ({
       ...comment,
+      parentId: comment.parentId ?? null,
       createdAt: comment.createdAt.toISOString(),
     }));
   const comments =
-    locale === "zh" ? rawComments.map(withZhCommentOverride) : rawComments;
+    locale === "zh"
+      ? rawComments.map((comment) => withZhCommentOverride(comment))
+      : rawComments;
 
   const dashboard = dashboardQuery.data ?? getFallbackDashboard();
   const featured = posts.find((post) => post.featured) ?? posts[0];

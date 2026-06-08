@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
@@ -152,6 +153,9 @@ export const comments = pgTable(
     id: text("id").primaryKey().$defaultFn(id),
     postSlug: text("post_slug").notNull(),
     body: text("body").notNull(),
+    parentId: text("parent_id").references((): AnyPgColumn => comments.id, {
+      onDelete: "set null",
+    }),
     authorName: text("author_name").notNull(),
     authorEmail: text("author_email").notNull(),
     authorUrl: text("author_url"),
@@ -165,6 +169,7 @@ export const comments = pgTable(
   },
   (table) => [
     index("comments_post_slug_idx").on(table.postSlug),
+    index("comments_parent_id_idx").on(table.parentId),
     index("comments_status_idx").on(table.status),
     index("comments_created_at_idx").on(table.createdAt),
   ],

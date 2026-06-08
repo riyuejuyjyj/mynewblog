@@ -26,6 +26,7 @@ export type BlogMoment = {
 export type BlogComment = {
   id: string;
   postSlug: string;
+  parentId?: string | null;
   authorName: string;
   body: string;
   status: "approved" | "pending";

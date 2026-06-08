@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 import { seedComments, seedPosts } from "@/content/seed";
 import {
@@ -33,6 +33,7 @@ export type PublicPost = {
 export type PublicComment = {
   id: string;
   postSlug: string;
+  parentId: string | null;
   authorName: string;
   body: string;
   status: string;
@@ -73,6 +74,7 @@ function seedToPublicComment(
 ): PublicComment {
   return withZhCommentOverride({
     ...comment,
+    parentId: comment.parentId ?? null,
     createdAt: comment.createdAt.toISOString(),
   });
 }
@@ -81,6 +83,7 @@ function rowToPublicComment(comment: typeof comments.$inferSelect): PublicCommen
   return withZhCommentOverride({
     id: comment.id,
     postSlug: comment.postSlug,
+    parentId: comment.parentId,
     authorName: comment.authorName,
     body: comment.body,
     status: comment.status,
@@ -130,7 +133,7 @@ export async function getApprovedCommentsByPost(slug: string) {
       .select()
       .from(comments)
       .where(and(eq(comments.postSlug, slug), eq(comments.status, "approved")))
-      .orderBy(desc(comments.createdAt))
+      .orderBy(asc(comments.createdAt))
       .limit(50)
       .catch(() => []);
 

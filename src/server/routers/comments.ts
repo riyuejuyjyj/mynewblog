@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -14,6 +14,7 @@ import {
 
 const commentInput = z.object({
   postSlug: z.string().min(1).max(120),
+  parentId: z.string().min(1).max(120).nullable().optional(),
   authorName: z.string().min(1).max(80),
   authorEmail: z.string().email().max(160),
   authorUrl: z.string().url().max(240).optional().or(z.literal("")),
@@ -23,6 +24,7 @@ const commentInput = z.object({
 function toComment(comment: typeof seedComments[number]) {
   return {
     ...comment,
+    parentId: comment.parentId ?? null,
     createdAt: comment.createdAt.toISOString(),
   };
 }
@@ -35,6 +37,7 @@ function commentRowToPublicDetail(comment: typeof comments.$inferSelect) {
   return withZhCommentOverride({
     id: comment.id,
     postSlug: comment.postSlug,
+    parentId: comment.parentId,
     authorName: comment.authorName,
     body: comment.body,
     status: comment.status,
@@ -68,6 +71,7 @@ export const commentsRouter = createTRPCRouter({
         return rows.map((comment) => ({
           id: comment.id,
           postSlug: comment.postSlug,
+          parentId: comment.parentId,
           authorName: comment.authorName,
           body: comment.body,
           status: comment.status,
@@ -96,7 +100,7 @@ export const commentsRouter = createTRPCRouter({
               eq(comments.status, "approved"),
             ),
           )
-          .orderBy(desc(comments.createdAt))
+          .orderBy(asc(comments.createdAt))
           .limit(input.limit)
           .catch(() => []);
 
@@ -122,16 +126,39 @@ export const commentsRouter = createTRPCRouter({
       authorName: input.authorName.trim(),
       authorUrl: input.authorUrl?.trim() || null,
       body: input.body.trim(),
+      parentId: input.parentId?.trim() || null,
       status: "pending",
     };
 
     if (hasDatabase) {
+      if (normalized.parentId) {
+        const [parent] = await ctx.db
+          .select({ id: comments.id })
+          .from(comments)
+          .where(
+            and(
+              eq(comments.id, normalized.parentId),
+              eq(comments.postSlug, normalized.postSlug),
+              eq(comments.status, "approved"),
+            ),
+          )
+          .limit(1);
+
+        if (!parent) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Reply target is not available.",
+          });
+        }
+      }
+
       const [created] = await ctx.db
         .insert(comments)
         .values(normalized)
         .returning({
           id: comments.id,
           postSlug: comments.postSlug,
+          parentId: comments.parentId,
           authorName: comments.authorName,
           body: comments.body,
           status: comments.status,
@@ -147,6 +174,7 @@ export const commentsRouter = createTRPCRouter({
     return {
       id: crypto.randomUUID(),
       postSlug: normalized.postSlug,
+      parentId: normalized.parentId,
       authorName: normalized.authorName,
       body: normalized.body,
       status: normalized.status,
@@ -194,6 +222,7 @@ export const commentsRouter = createTRPCRouter({
       return rows.map((comment) => ({
         id: comment.id,
         postSlug: comment.postSlug,
+        parentId: comment.parentId,
         authorName: comment.authorName,
         authorEmail: comment.authorEmail,
         authorUrl: comment.authorUrl,
