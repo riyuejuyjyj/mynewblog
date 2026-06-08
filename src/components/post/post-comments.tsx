@@ -177,7 +177,7 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
           placeholder={
             replyTarget
               ? `写下回复 ${replyTarget.authorName} 的一句话`
-              : "写下你想留下的一句话"
+              : "写下你的评论"
           }
           className="studio-input resize-none leading-7"
         />
@@ -191,7 +191,7 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
             ? "发送中..."
             : replyTarget
               ? "提交回复"
-              : "提交评论"}
+              : "发表评论"}
         </Button>
       </form>
     );
@@ -226,7 +226,7 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
             onClick={() => startReply(comment)}
           >
             <MessageCircle className="size-4" />
-            评论
+            回复
           </Button>
         </div>
 
@@ -253,14 +253,14 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
           </span>
           <div>
             <p className="text-xs font-black text-slate-500 dark:text-slate-300">
-              留言
+              文章评论
             </p>
-            <h2 className="text-2xl font-black tracking-[0]">留下回声</h2>
+            <h2 className="text-2xl font-black tracking-[0]">评论</h2>
           </div>
         </div>
 
         <span className="self-start rounded-full bg-white/45 px-3 py-1 text-xs font-black text-slate-600 dark:bg-white/10 dark:text-slate-300 lg:self-auto">
-          {comments.length} 条已通过评论
+          {comments.length} 条评论
         </span>
       </div>
 
@@ -270,7 +270,7 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
           aria-live="polite"
         >
           <CheckCircle2 className="size-4" />
-          评论已提交，审核通过后会显示在这里。
+          内容已提交，审核通过后会显示在这里。
         </p>
       ) : null}
 
@@ -280,16 +280,16 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-black text-coral-700 dark:text-coral-200">
-              读者回声
+              评论
             </p>
-            <h3 className="mt-1 text-xl font-black tracking-[0]">评论</h3>
+            <h3 className="mt-1 text-xl font-black tracking-[0]">全部评论</h3>
           </div>
         </div>
 
         <div className="mt-5 space-y-4">
           {comments.length === 0 ? (
             <p className="rounded-3xl border border-dashed border-white/45 p-8 text-center text-sm font-bold text-slate-400 dark:border-white/10">
-              还没有通过审核的评论，等第一声回响。
+              还没有评论，来写第一条。
             </p>
           ) : null}
 
