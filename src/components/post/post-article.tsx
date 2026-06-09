@@ -214,7 +214,7 @@ export function PostArticle({
             </div>
 
             <div
-              className="article-prose px-5 py-7 text-slate-800 dark:text-slate-100 sm:px-8 lg:px-12 lg:py-10"
+              className="article-prose px-4 py-6 text-slate-800 dark:text-slate-100 sm:px-8 sm:py-7 lg:px-12 lg:py-10"
               id="article-content"
             >
               <MarkdownPreview value={post.content} />

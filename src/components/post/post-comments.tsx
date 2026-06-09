@@ -23,6 +23,11 @@ type CommentNode = PublicComment & {
   replies: CommentNode[];
 };
 
+type FlatReply = {
+  comment: CommentNode;
+  replyToName: string;
+};
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("zh-CN", {
     month: "2-digit",
@@ -63,6 +68,20 @@ function buildCommentTree(comments: PublicComment[]) {
   }
 
   return roots;
+}
+
+function flattenReplies(comment: CommentNode): FlatReply[] {
+  const replies: FlatReply[] = [];
+
+  for (const reply of comment.replies) {
+    replies.push({
+      comment: reply,
+      replyToName: comment.authorName,
+    });
+    replies.push(...flattenReplies(reply));
+  }
+
+  return replies;
 }
 
 export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
@@ -256,18 +275,13 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
     );
   }
 
-  function renderComment(comment: CommentNode, depth = 0) {
+  function renderComment(comment: CommentNode, replyToName?: string) {
     const isReplying = replyTargetId === comment.id;
 
     return (
       <article
         key={comment.id}
-        className={cn(
-          "group",
-          depth > 0
-            ? "border-l border-slate-200/80 pl-2.5 dark:border-white/12 sm:pl-4"
-            : "",
-        )}
+        className="group"
       >
         <div className="flex gap-2.5 sm:gap-3">
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white/58 text-xs font-black text-slate-700 shadow-sm ring-1 ring-white/55 dark:bg-white/12 dark:text-slate-100 dark:ring-white/10 sm:size-9 sm:text-sm">
@@ -282,6 +296,11 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 {formatDate(comment.createdAt)}
               </span>
+              {replyToName ? (
+                <span className="rounded-full bg-white/45 px-2 py-0.5 text-[11px] font-black text-slate-500 dark:bg-white/10 dark:text-slate-300">
+                  回复 {replyToName}
+                </span>
+              ) : null}
             </div>
 
             <p className="mt-1.5 break-words text-sm leading-7 text-slate-700 dark:text-slate-200">
@@ -303,11 +322,6 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
               <div className="mt-2">{renderComposer(true)}</div>
             ) : null}
 
-            {comment.replies.length > 0 ? (
-              <div className="mt-4 space-y-4">
-                {comment.replies.map((reply) => renderComment(reply, depth + 1))}
-              </div>
-            ) : null}
           </div>
         </div>
       </article>
@@ -351,7 +365,22 @@ export function PostComments({ initialComments, postSlug }: PostCommentsProps) {
           </p>
         ) : null}
 
-        {commentTree.map((comment) => renderComment(comment))}
+        {commentTree.map((comment) => {
+          const replies = flattenReplies(comment);
+
+          return (
+            <div className="space-y-4" key={comment.id}>
+              {renderComment(comment)}
+              {replies.length > 0 ? (
+                <div className="space-y-4 border-l border-slate-200/80 pl-2.5 dark:border-white/12 sm:pl-4">
+                  {replies.map((reply) =>
+                    renderComment(reply.comment, reply.replyToName),
+                  )}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
