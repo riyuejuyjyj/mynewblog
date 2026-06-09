@@ -8,7 +8,6 @@ import {
   FileText,
   MessageSquareText,
   PenLine,
-  Sparkles,
 } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -49,28 +48,27 @@ export function StudioDashboard({
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-      <section className="studio-panel p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <section className="studio-panel p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <Badge className="gap-2">
-              <Sparkles className="size-3.5" />
-              System pulse
+              <Activity className="size-3.5" />
+              工作台概览
             </Badge>
-            <h2 className="mt-5 text-4xl font-black tracking-[0]">
-              写作系统状态良好。
+            <h2 className="mt-4 text-2xl font-black tracking-[0] sm:text-3xl">
+              内容与发布状态
             </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-              后台已经接入 Better Auth、邀请码门禁、Neon 数据层和 R2 上传签名。
-              现在可以从这里进入文章、媒体、评论与发布流程。
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              快速查看文章、评论、媒体存储和待处理操作，继续进入写作或审核流程。
             </p>
           </div>
-          <Button type="button" onClick={() => onViewChange("editor")}>
+          <Button type="button" className="w-full sm:w-auto" onClick={() => onViewChange("editor")}>
             <PenLine className="size-4" />
             开始写作
           </Button>
         </div>
 
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
           {[
             ...metricCards.map((card) => ({
               label: card.label,
@@ -81,12 +79,12 @@ export function StudioDashboard({
           ].map(({ label, value, icon: Icon }) => (
             <motion.div
               key={label}
-              whileHover={{ y: -6, scale: 1.015 }}
+              whileHover={{ y: -3, scale: 1.01 }}
               transition={{ type: "spring", stiffness: 360, damping: 28 }}
-              className="rounded-3xl border border-white/45 bg-white/35 p-5 dark:border-white/10 dark:bg-white/10"
+              className="rounded-2xl border border-white/45 bg-white/35 p-4 dark:border-white/10 dark:bg-white/10"
             >
               <Icon className="size-5 text-coral-500" />
-              <div className="mt-5 text-3xl font-black">{value}</div>
+              <div className="mt-4 text-2xl font-black sm:text-3xl">{value}</div>
               <div className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
                 {label}
               </div>
@@ -95,21 +93,21 @@ export function StudioDashboard({
         </div>
       </section>
 
-      <section className="studio-panel p-6">
+      <section className="studio-panel p-4 sm:p-5">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-black uppercase text-slate-400">
-              Deploy queue
+              Operations
             </p>
-            <h2 className="mt-1 text-2xl font-black tracking-[0]">待处理操作</h2>
+            <h2 className="mt-1 text-xl font-black tracking-[0]">待处理操作</h2>
           </div>
           <Badge>{operations.length}</Badge>
         </div>
-        <div className="mt-5 space-y-3">
+        <div className="mt-4 space-y-2">
           {operations.map((operation, index) => (
             <div
               key={`${operation}-${index}`}
-              className="rounded-2xl border border-white/45 bg-white/35 px-4 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-white/10 dark:text-slate-200"
+              className="rounded-2xl border border-white/45 bg-white/35 px-3 py-2.5 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-white/10 dark:text-slate-200"
             >
               {operation}
             </div>
@@ -117,24 +115,24 @@ export function StudioDashboard({
         </div>
       </section>
 
-      <section className="studio-panel p-6 xl:col-span-2">
-        <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+      <section className="studio-panel p-4 sm:p-5 xl:col-span-2">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div>
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-2xl font-black tracking-[0]">最近文章</h2>
-              <Button type="button" variant="glass" onClick={() => onViewChange("posts")}>
+              <h2 className="text-xl font-black tracking-[0]">最近文章</h2>
+              <Button type="button" variant="glass" size="sm" onClick={() => onViewChange("posts")}>
                 查看全部
               </Button>
             </div>
-            <div className="mt-5 grid gap-3">
+            <div className="mt-4 grid gap-2">
               {recentPosts.length > 0 ? (
                 recentPosts.map((post) => (
                   <div
                     key={post.id}
-                    className="rounded-3xl border border-white/45 bg-white/30 p-4 dark:border-white/10 dark:bg-white/10"
+                    className="rounded-2xl border border-white/45 bg-white/30 p-3 dark:border-white/10 dark:bg-white/10"
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
+                      <div className="min-w-0">
                         <h3 className="line-clamp-1 text-base font-black">
                           {post.title}
                         </h3>
@@ -147,14 +145,14 @@ export function StudioDashboard({
                   </div>
                 ))
               ) : (
-                <p className="rounded-3xl border border-dashed border-white/45 p-8 text-center text-sm font-bold text-slate-400 dark:border-white/10">
+                <p className="rounded-2xl border border-dashed border-white/45 p-8 text-center text-sm font-bold text-slate-400 dark:border-white/10">
                   还没有数据库文章，可以先写第一篇。
                 </p>
               )}
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/45 bg-white/30 p-5 dark:border-white/10 dark:bg-white/10">
+          <div className="rounded-2xl border border-white/45 bg-white/30 p-4 dark:border-white/10 dark:bg-white/10">
             <div className="flex items-center gap-3">
               <Cloud className="size-6 text-emerald-500" />
               <div>
@@ -165,15 +163,15 @@ export function StudioDashboard({
               </div>
             </div>
             <div className="mt-5 space-y-3 text-sm font-bold">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <span className="text-slate-500 dark:text-slate-300">Provider</span>
                 <span>{storage.provider}</span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <span className="text-slate-500 dark:text-slate-300">Bucket</span>
-                <span>{storage.bucket ?? "未配置"}</span>
+                <span className="truncate text-right">{storage.bucket ?? "未配置"}</span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <span className="text-slate-500 dark:text-slate-300">Database</span>
                 <span className="inline-flex items-center gap-2">
                   <Database className="size-4 text-emerald-500" />

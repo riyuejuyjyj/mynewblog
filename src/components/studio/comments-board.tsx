@@ -44,12 +44,12 @@ export function CommentsBoard({
     <section className="studio-panel overflow-hidden">
       <div className="flex flex-col gap-3 border-b border-white/35 p-6 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase text-slate-400">Reader voices</p>
-          <h2 className="mt-1 text-3xl font-black tracking-[0]">评论回声</h2>
+          <p className="text-xs font-black uppercase text-slate-400">Comments</p>
+          <h2 className="mt-1 text-3xl font-black tracking-[0]">评论审核</h2>
         </div>
         <Badge className="gap-2">
           <ShieldCheck className="size-3.5" />
-          当前展示已通过评论
+          当前展示通过评论
         </Badge>
       </div>
 

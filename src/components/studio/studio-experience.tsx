@@ -1038,22 +1038,24 @@ export function StudioExperience() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-4 pb-16 pt-6 text-slate-950 dark:text-white sm:px-6 lg:px-8">
+    <main className="relative min-h-screen overflow-hidden px-3 pb-12 pt-4 text-slate-950 dark:text-white sm:px-6 sm:pb-16 sm:pt-6 lg:px-8">
       <DynamicBackdrop ambientMode="night" />
 
-      <nav className="relative z-20 mx-auto flex w-full max-w-[1600px] items-center justify-between rounded-full border border-white/45 bg-white/35 px-4 py-3 shadow-2xl shadow-slate-900/10 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/30">
+      <nav className="relative z-20 mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 rounded-[1.5rem] border border-white/45 bg-white/35 px-3 py-3 shadow-2xl shadow-slate-900/10 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/30 sm:rounded-full sm:px-4">
         <Link href="/" className="flex items-center gap-3 text-sm font-bold">
           <span className="grid size-11 place-items-center rounded-full bg-slate-950 text-white dark:bg-white dark:text-slate-950">
             <ArrowLeft className="size-5" />
           </span>
-          返回博客
+          <span className="hidden sm:inline">返回博客</span>
+          <span className="sm:hidden">博客</span>
         </Link>
         <div className="flex items-center gap-2">
-          <Badge>Creator Studio</Badge>
+          <Badge className="hidden sm:inline-flex">Creator Studio</Badge>
           {session.data?.user ? (
-            <Button type="button" variant="glass" onClick={signOut}>
+            <Button type="button" variant="glass" size="sm" onClick={signOut}>
               <LogOut className="size-4" />
-              退出登录
+              <span className="hidden sm:inline">退出登录</span>
+              <span className="sm:hidden">退出</span>
             </Button>
           ) : null}
         </div>
