@@ -35,8 +35,8 @@ export const copy = {
     commentOn: "评论",
     postComment: "发布评论",
     sending: "发送中...",
-    recentVoices: "最近的声音",
-    readerNotes: "读者留言",
+    recentVoices: "最新评论",
+    readerNotes: "读者评论",
     live: "条",
     cards: {
       writing: {
@@ -48,8 +48,8 @@ export const copy = {
         body: "相册只放真正想回看的画面，不把页面变成素材堆。",
       },
       guestbook: {
-        title: "读者回声",
-        body: "留言会经过整理再出现，让讨论保持安静、清楚、有人味。",
+        title: "读者评论",
+        body: "评论会经过整理再出现，让讨论保持安静、清楚、有人味。",
       },
     },
   },

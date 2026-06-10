@@ -225,12 +225,21 @@ export function StudioExperience() {
     onSuccess: async () => {
       await utils.comments.studioList.invalidate();
       await utils.comments.recent.invalidate();
+      await utils.comments.byPost.invalidate();
     },
   });
   const deleteComment = trpc.comments.delete.useMutation({
     onSuccess: async () => {
       await utils.comments.studioList.invalidate();
       await utils.comments.recent.invalidate();
+      await utils.comments.byPost.invalidate();
+    },
+  });
+  const replyFromStudio = trpc.comments.replyFromStudio.useMutation({
+    onSuccess: async () => {
+      await utils.comments.studioList.invalidate();
+      await utils.comments.recent.invalidate();
+      await utils.comments.byPost.invalidate();
     },
   });
   const upsertTrack = trpc.music.upsertTrack.useMutation({
@@ -635,6 +644,11 @@ export function StudioExperience() {
     deleteComment.mutate({ id: commentId });
   }
 
+  async function replyToComment(commentId: string, body: string) {
+    await replyFromStudio.mutateAsync({ parentId: commentId, body });
+    setOperations((current) => [`回复评论：${body.slice(0, 24)}`, ...current].slice(0, 6));
+  }
+
   async function saveTrack(input: {
     id?: string;
     title: string;
@@ -1012,8 +1026,10 @@ export function StudioExperience() {
             comments={recentComments}
             isDeleting={deleteComment.isPending}
             isLoading={comments.isLoading}
+            isReplying={replyFromStudio.isPending}
             isUpdating={updateCommentStatus.isPending}
             onDelete={removeComment}
+            onReply={replyToComment}
             onStatusChange={updateComment}
           />
         );

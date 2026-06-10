@@ -20,6 +20,10 @@ const commentInput = z.object({
   authorUrl: z.string().url().max(240).optional().or(z.literal("")),
   body: z.string().min(2).max(1200),
 });
+const studioReplyInput = z.object({
+  parentId: z.string().min(1).max(120),
+  body: z.string().min(2).max(1200),
+});
 
 function toComment(comment: typeof seedComments[number]) {
   return {
@@ -43,6 +47,23 @@ function commentRowToPublicDetail(comment: typeof comments.$inferSelect) {
     status: comment.status,
     createdAt: comment.createdAt.toISOString(),
   });
+}
+
+function shouldMarkSpam(input: {
+  authorName: string;
+  authorUrl: string | null;
+  body: string;
+}) {
+  const urlCount =
+    (input.body.match(/https?:\/\/|www\./gi)?.length ?? 0) +
+    (input.authorUrl ? 1 : 0);
+  const nameLooksLikeUrl = /https?:\/\/|www\.|\.com|\.net|\.org/i.test(
+    input.authorName,
+  );
+  const containsHtmlLink = /<a\s|<\/a>|\[url=/i.test(input.body);
+  const repeatedNoise = /(.)\1{12,}/u.test(input.body);
+
+  return urlCount > 2 || nameLooksLikeUrl || containsHtmlLink || repeatedNoise;
 }
 
 export const commentsRouter = createTRPCRouter({
@@ -129,6 +150,7 @@ export const commentsRouter = createTRPCRouter({
       parentId: input.parentId?.trim() || null,
       status: "pending",
     };
+    const status = shouldMarkSpam(normalized) ? "spam" : normalized.status;
 
     if (hasDatabase) {
       if (normalized.parentId) {
@@ -154,7 +176,7 @@ export const commentsRouter = createTRPCRouter({
 
       const [created] = await ctx.db
         .insert(comments)
-        .values(normalized)
+        .values({ ...normalized, status })
         .returning({
           id: comments.id,
           postSlug: comments.postSlug,
@@ -177,10 +199,72 @@ export const commentsRouter = createTRPCRouter({
       parentId: normalized.parentId,
       authorName: normalized.authorName,
       body: normalized.body,
-      status: normalized.status,
+      status,
       createdAt: new Date().toISOString(),
     };
   }),
+
+  replyFromStudio: studioProcedure
+    .input(studioReplyInput)
+    .mutation(async ({ ctx, input }) => {
+      if (!hasDatabase) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Studio replies need DATABASE_URL.",
+        });
+      }
+
+      const [parent] = await ctx.db
+        .select({
+          id: comments.id,
+          postSlug: comments.postSlug,
+          status: comments.status,
+        })
+        .from(comments)
+        .where(eq(comments.id, input.parentId))
+        .limit(1);
+
+      if (!parent || parent.status !== "approved") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Approve the parent comment before replying.",
+        });
+      }
+
+      const now = new Date();
+      const [created] = await ctx.db
+        .insert(comments)
+        .values({
+          postSlug: parent.postSlug,
+          parentId: parent.id,
+          authorName: ctx.session.user.name?.trim() || "作者",
+          authorEmail: ctx.session.user.email,
+          authorId: ctx.session.user.id,
+          authorUrl: null,
+          body: input.body.trim(),
+          status: "approved",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning({
+          id: comments.id,
+          postSlug: comments.postSlug,
+          parentId: comments.parentId,
+          authorName: comments.authorName,
+          authorEmail: comments.authorEmail,
+          authorUrl: comments.authorUrl,
+          body: comments.body,
+          status: comments.status,
+          createdAt: comments.createdAt,
+          updatedAt: comments.updatedAt,
+        });
+
+      return {
+        ...created,
+        createdAt: created.createdAt.toISOString(),
+        updatedAt: created.updatedAt.toISOString(),
+      };
+    }),
 
   studioList: studioProcedure
     .input(

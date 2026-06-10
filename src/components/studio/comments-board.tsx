@@ -1,7 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { MessageCircle, MessageSquareReply, ShieldCheck, Trash2 } from "lucide-react";
+import { useMemo, useState, type FormEvent } from "react";
+import {
+  MessageCircle,
+  MessageSquareReply,
+  Send,
+  ShieldCheck,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,8 +19,10 @@ type CommentsBoardProps = {
   comments: StudioComment[];
   isLoading: boolean;
   isDeleting: boolean;
+  isReplying: boolean;
   isUpdating: boolean;
   onDelete: (commentId: string) => void;
+  onReply: (commentId: string, body: string) => Promise<void> | void;
   onStatusChange: (
     commentId: string,
     status: "approved" | "pending" | "spam",
@@ -54,11 +63,15 @@ export function CommentsBoard({
   comments,
   isDeleting,
   isLoading,
+  isReplying,
   isUpdating,
   onDelete,
+  onReply,
   onStatusChange,
 }: CommentsBoardProps) {
   const [statusFilter, setStatusFilter] = useState<CommentStatusFilter>("all");
+  const [replyTargetId, setReplyTargetId] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState("");
   const [pendingDeleteComment, setPendingDeleteComment] =
     useState<StudioComment | null>(null);
   const commentsById = useMemo(
@@ -100,6 +113,20 @@ export function CommentsBoard({
 
     onDelete(pendingDeleteComment.id);
     setPendingDeleteComment(null);
+  }
+
+  async function submitReply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const body = replyBody.trim();
+
+    if (!replyTargetId || !body) {
+      return;
+    }
+
+    await onReply(replyTargetId, body);
+    setReplyTargetId(null);
+    setReplyBody("");
   }
 
   return (
@@ -162,6 +189,7 @@ export function CommentsBoard({
             ? commentsById.get(comment.parentId)
             : null;
           const isReply = Boolean(comment.parentId);
+          const canReply = comment.status === "approved";
           const Icon = isReply ? MessageSquareReply : MessageCircle;
 
           return (
@@ -202,7 +230,62 @@ export function CommentsBoard({
               <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-200">
                 {comment.body}
               </p>
+
+              {replyTargetId === comment.id ? (
+                <form
+                  className="mt-4 space-y-2"
+                  onSubmit={(event) => {
+                    void submitReply(event);
+                  }}
+                >
+                  <textarea
+                    value={replyBody}
+                    onChange={(event) => setReplyBody(event.target.value)}
+                    placeholder={`回复 ${comment.authorName}`}
+                    className="studio-input min-h-20 resize-y rounded-2xl px-3 py-2 text-sm leading-6"
+                    disabled={isReplying}
+                  />
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="glass"
+                      size="sm"
+                      disabled={isReplying}
+                      onClick={() => {
+                        setReplyTargetId(null);
+                        setReplyBody("");
+                      }}
+                    >
+                      <X className="size-4" />
+                      取消
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={isReplying || !replyBody.trim()}
+                    >
+                      <Send className="size-4" />
+                      {isReplying ? "发表中" : "发表回复"}
+                    </Button>
+                  </div>
+                </form>
+              ) : null}
+
               <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="glass"
+                  size="sm"
+                  className="flex-1 sm:flex-none"
+                  disabled={!canReply || isReplying}
+                  onClick={() => {
+                    setReplyTargetId(comment.id);
+                    setReplyBody("");
+                  }}
+                >
+                  <MessageSquareReply className="size-4" />
+                  回复
+                </Button>
                 {moderationStatuses.map((status) => (
                   <Button
                     key={status}
