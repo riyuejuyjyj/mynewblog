@@ -68,8 +68,8 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - [ ] Make repeated admin controls feel like a dense work surface: compact headers, stable button sizes, no nested card feel.
 
 ### P2: Publishing Workflow
-- [ ] Strengthen create/edit/delete/publish states in Studio with clear pending, success, and failure feedback.
-- [ ] Tighten slug, title, cover, excerpt, tags, reading time, featured, and published validation.
+- [x] Strengthen publish states in Studio with clear readiness feedback.
+- [x] Tighten slug, title, cover, excerpt, reading time, featured, and published validation.
 - [ ] Improve Markdown editor ergonomics on mobile: metadata editing, preview switching, upload flow, and save status.
 - [ ] Continue splitting large editor logic only where it reduces real complexity.
 

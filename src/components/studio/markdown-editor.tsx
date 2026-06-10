@@ -239,6 +239,27 @@ export function MarkdownEditor({
   const [uploadingCover, setUploadingCover] = useState(false);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const wordCount = useMemo(() => getWordCount(form.content), [form.content]);
+  const publishValidation = useMemo(() => {
+    const normalizedSlug = slugify(publishDraft.slug || form.title);
+    const readingMinutes = Number(publishDraft.readingMinutes);
+    const issues = [
+      form.title.trim() ? "" : "需要文章标题",
+      normalizedSlug ? "" : "需要可发布的 slug",
+      form.content.trim() ? "" : "正文还没有内容",
+      publishDraft.excerpt.trim() ? "" : "需要摘要",
+      publishDraft.category.trim() ? "" : "需要分类",
+      publishDraft.coverImage.trim() ? "" : "需要封面图片",
+      Number.isFinite(readingMinutes) && readingMinutes >= 1 && readingMinutes <= 120
+        ? ""
+        : "阅读时间需在 1-120 分钟之间",
+    ].filter(Boolean);
+
+    return {
+      canPublish: issues.length === 0 && !uploadingCover,
+      issues,
+      normalizedSlug,
+    };
+  }, [form.content, form.title, publishDraft, uploadingCover]);
   const childrenMap = useMemo(() => buildChildrenMap(nodes), [nodes]);
   const pendingTreeDeleteNode = useMemo(
     () => nodes.find((node) => node.id === pendingTreeDeleteId) ?? null,
@@ -546,11 +567,15 @@ export function MarkdownEditor({
   }
 
   async function publishPost() {
+    if (!publishValidation.canPublish) {
+      return;
+    }
+
     syncActiveLocalDoc();
     await onSave({
       ...publishDraft,
       published: true,
-      slug: slugify(publishDraft.slug || form.title),
+      slug: publishValidation.normalizedSlug,
     });
     closePublishDialog();
   }
@@ -945,6 +970,18 @@ export function MarkdownEditor({
             </div>
 
             <div className="max-h-[calc(92vh-148px)] overflow-y-auto p-5">
+              <div
+                className={cn(
+                  "mb-4 rounded-2xl px-4 py-3 text-sm font-bold",
+                  publishValidation.canPublish
+                    ? "bg-emerald-100 text-emerald-950 dark:bg-emerald-400/15 dark:text-emerald-100"
+                    : "bg-coral-100 text-coral-950 dark:bg-coral-400/15 dark:text-coral-100",
+                )}
+              >
+                {publishValidation.canPublish
+                  ? "发布信息已完整。"
+                  : publishValidation.issues[0]}
+              </div>
               <div className="grid gap-5 lg:grid-cols-[1fr_260px]">
                 <div className="space-y-4">
                   <label className="studio-label block">
@@ -960,6 +997,11 @@ export function MarkdownEditor({
                       required
                       className="studio-input mt-2"
                     />
+                    {publishValidation.normalizedSlug ? (
+                      <p className="mt-2 text-xs font-bold text-slate-500 dark:text-slate-300">
+                        /{publishValidation.normalizedSlug}
+                      </p>
+                    ) : null}
                   </label>
 
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -1122,7 +1164,7 @@ export function MarkdownEditor({
               </Button>
               <Button
                 type="button"
-                disabled={isSaving || uploadingCover}
+                disabled={isSaving || uploadingCover || !publishValidation.canPublish}
                 onClick={() => void publishPost()}
               >
                 <Send className="size-4" />
