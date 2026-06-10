@@ -45,13 +45,13 @@ export function StudioGate({
 }: StudioGateProps) {
   if (inviteChecking) {
     return (
-      <section className="relative z-10 mx-auto mt-10 w-full max-w-xl">
-        <div className="glass-panel p-8">
+      <section className="relative z-10 mx-auto mt-6 w-full max-w-xl px-3 sm:mt-10 sm:px-0">
+        <div className="glass-panel p-5 sm:p-8">
           <Badge>Studio Gate</Badge>
-          <h1 className="mt-8 text-4xl font-black leading-tight tracking-[0]">
+          <h1 className="mt-6 text-2xl font-black leading-tight tracking-[0] sm:mt-8 sm:text-4xl">
             正在确认后台访问权限
           </h1>
-          <p className="mt-5 text-base leading-8 text-slate-700 dark:text-slate-200">
+          <p className="mt-4 text-sm leading-7 text-slate-700 dark:text-slate-200 sm:mt-5 sm:text-base sm:leading-8">
             正在校验这台设备上的邀请码令牌。
           </p>
         </div>
@@ -61,19 +61,19 @@ export function StudioGate({
 
   if (!inviteVerified) {
     return (
-      <section className="relative z-10 mx-auto mt-10 grid w-full max-w-5xl gap-6 lg:grid-cols-[1fr_420px]">
-        <div className="glass-panel p-8">
+      <section className="relative z-10 mx-auto mt-6 grid w-full max-w-5xl gap-4 px-3 sm:mt-10 sm:px-0 lg:grid-cols-[1fr_380px]">
+        <div className="glass-panel p-5 sm:p-8">
           <Badge>Private Studio</Badge>
-          <h1 className="mt-8 max-w-2xl text-5xl font-black leading-tight tracking-[0]">
+          <h1 className="mt-6 max-w-2xl text-3xl font-black leading-tight tracking-[0] sm:mt-8 sm:text-5xl">
             先通过邀请码，再进入后台。
           </h1>
-          <p className="mt-5 max-w-xl text-base leading-8 text-slate-700 dark:text-slate-200">
+          <p className="mt-4 max-w-xl text-sm leading-7 text-slate-700 dark:text-slate-200 sm:mt-5 sm:text-base sm:leading-8">
             后台接口也会校验邀请码状态。即使绕过页面直接请求 tRPC，
             没有通过门禁也无法读写文章。
           </p>
         </div>
 
-        <form onSubmit={onInviteSubmit} className="glass-panel p-6">
+        <form onSubmit={onInviteSubmit} className="glass-panel p-5 sm:p-6">
           <div className="flex items-center gap-3">
             <KeyRound className="size-6 text-coral-500" />
             <div>
@@ -112,18 +112,18 @@ export function StudioGate({
   }
 
   return (
-    <section className="relative z-10 mx-auto mt-10 grid w-full max-w-5xl gap-6 lg:grid-cols-[1fr_420px]">
-      <div className="glass-panel p-8">
+    <section className="relative z-10 mx-auto mt-6 grid w-full max-w-5xl gap-4 px-3 sm:mt-10 sm:px-0 lg:grid-cols-[1fr_380px]">
+      <div className="glass-panel p-5 sm:p-8">
         <Badge>Better Auth</Badge>
-        <h1 className="mt-8 max-w-2xl text-5xl font-black leading-tight tracking-[0]">
+        <h1 className="mt-6 max-w-2xl text-3xl font-black leading-tight tracking-[0] sm:mt-8 sm:text-5xl">
           打开写作控制台。
         </h1>
-        <p className="mt-5 max-w-xl text-base leading-8 text-slate-700 dark:text-slate-200">
+        <p className="mt-4 max-w-xl text-sm leading-7 text-slate-700 dark:text-slate-200 sm:mt-5 sm:text-base sm:leading-8">
           登录后可以写文章、管理草稿、准备发布，并继续接入 R2 媒体与评论审核。
         </p>
       </div>
 
-      <form onSubmit={onAuthSubmit} className="glass-panel p-6">
+      <form onSubmit={onAuthSubmit} className="glass-panel p-5 sm:p-6">
         <div className="flex items-center gap-3">
           <Lock className="size-6 text-emerald-500" />
           <div>
@@ -134,7 +134,7 @@ export function StudioGate({
           </div>
         </div>
 
-        <div className="mt-6 space-y-3">
+        <div className="mt-5 space-y-3 sm:mt-6">
           {authMode === "signup" ? (
             <input
               value={authName}
@@ -169,7 +169,7 @@ export function StudioGate({
           </p>
         ) : null}
 
-        <Button className="mt-5 w-full" type="submit">
+        <Button className="mt-4 w-full sm:mt-5" type="submit">
           <Sparkles className="size-4" />
           {authMode === "signin" ? "Sign in" : "Create account"}
         </Button>

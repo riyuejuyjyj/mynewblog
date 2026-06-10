@@ -61,6 +61,7 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - [ ] Keep the standard verification gate before each push: `bunx tsc --noEmit`, `bun run lint`, `bun run build`.
 
 ### P1: Studio Mobile Admin Pass
+- [x] Tighten `StudioGate` auth/invite screens so the first `/studio` screen is not presentation-heavy on mobile.
 - [ ] Verify the new mobile Studio shell with an authenticated session, not only the auth gate.
 - [ ] Check no top-bar action, tab label, badge, or stats cell wraps awkwardly at 360-430px.
 - [x] Reduce oversized mobile spacing in `posts-board.tsx`, `comments-board.tsx`, `media-board.tsx`, and key editor panels.
