@@ -130,7 +130,7 @@ export function MediaBoard({
 
   return (
     <section className="studio-panel overflow-hidden">
-      <header className="flex flex-col gap-4 border-b border-white/35 p-5 dark:border-white/10 lg:flex-row lg:items-center lg:justify-between">
+      <header className="flex flex-col gap-4 border-b border-white/35 p-4 dark:border-white/10 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge>Cloudflare R2</Badge>
@@ -153,33 +153,35 @@ export function MediaBoard({
               </Badge>
             ) : null}
           </div>
-          <h2 className="mt-4 text-3xl font-black tracking-[0]">R2 光影库</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
+          <h2 className="mt-4 text-2xl font-black tracking-[0] sm:text-3xl">
+            媒体库
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
             主区域直接展示已上传图片。新上传会在确认 R2 对象存在后再写入数据库，旧的幽灵记录会标记为对象缺失并可清理。
           </p>
         </div>
 
-        <Button type="button" onClick={() => setUploadOpen(true)}>
+        <Button type="button" className="w-full sm:w-auto" onClick={() => setUploadOpen(true)}>
           <Upload className="size-4" />
           上传图片
         </Button>
       </header>
 
-      <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3 2xl:grid-cols-4">
         {assetsLoading ? (
           Array.from({ length: 8 }).map((_, index) => (
             <div
               key={index}
-              className="aspect-[4/3] animate-pulse rounded-3xl bg-white/25 dark:bg-white/10"
+              className="aspect-[4/3] animate-pulse rounded-2xl bg-white/25 dark:bg-white/10"
             />
           ))
         ) : null}
 
         {!assetsLoading && imageAssets.length === 0 ? (
-          <div className="col-span-full grid min-h-[420px] place-items-center rounded-[2rem] border border-dashed border-white/45 bg-white/20 p-8 text-center dark:border-white/10 dark:bg-white/5">
+          <div className="col-span-full grid min-h-[300px] place-items-center rounded-2xl border border-dashed border-white/45 bg-white/20 p-6 text-center dark:border-white/10 dark:bg-white/5 sm:min-h-[420px] sm:p-8">
             <div>
-              <FileImage className="mx-auto size-14 text-slate-400" />
-              <h3 className="mt-5 text-2xl font-black tracking-[0]">
+              <FileImage className="mx-auto size-12 text-slate-400 sm:size-14" />
+              <h3 className="mt-4 text-xl font-black tracking-[0] sm:mt-5 sm:text-2xl">
                 还没有可展示的图片
               </h3>
               <p className="mt-2 text-sm font-semibold text-slate-500 dark:text-slate-300">
@@ -209,10 +211,10 @@ export function MediaBoard({
           const canPreview = Boolean(previewUrl && !brokenAssets.has(asset.id));
 
           return (
-            <article
-              key={asset.id}
-              className={cn(
-                "group overflow-hidden rounded-3xl border border-white/45 bg-white/28 shadow-xl shadow-slate-950/5 transition duration-300 hover:-translate-y-1 hover:bg-white/40 hover:shadow-2xl hover:shadow-slate-950/10 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15",
+          <article
+            key={asset.id}
+            className={cn(
+                "group overflow-hidden rounded-2xl border border-white/45 bg-white/28 shadow-xl shadow-slate-950/5 transition duration-300 hover:bg-white/40 hover:shadow-2xl hover:shadow-slate-950/10 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15",
                 isMissing && "border-coral-300/70 bg-coral-50/30 dark:border-coral-400/25 dark:bg-coral-400/10",
               )}
             >
@@ -245,7 +247,7 @@ export function MediaBoard({
                 ) : null}
               </div>
 
-              <div className="space-y-3 p-4">
+              <div className="space-y-3 p-3 sm:p-4">
                 <div>
                   <h3 className="truncate text-sm font-black">
                     {asset.altText ?? fileNameOf(asset.objectKey)}
@@ -265,7 +267,7 @@ export function MediaBoard({
                     onClick={() => actionUrl && onCoverChange(actionUrl)}
                   >
                     <ImagePlus className="size-4" />
-                    设为封面
+                    封面
                   </Button>
                   <Button
                     type="button"
@@ -277,7 +279,7 @@ export function MediaBoard({
                     }
                   >
                     <Send className="size-4" />
-                    插入正文
+                    插入
                   </Button>
                 </div>
 
@@ -335,7 +337,7 @@ export function MediaBoard({
       />
 
       {uploadOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 px-4 py-8 backdrop-blur-xl">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 px-3 py-6 backdrop-blur-xl sm:px-4 sm:py-8">
           <div className="studio-panel w-full max-w-xl overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/35 px-5 py-4 dark:border-white/10">
               <div>
@@ -356,7 +358,7 @@ export function MediaBoard({
               </button>
             </div>
 
-            <div className="p-5">
+            <div className="p-4 sm:p-5">
               <div className="mb-4 flex flex-wrap gap-2">
                 {folders.map(([value, label]) => (
                   <button
@@ -375,7 +377,7 @@ export function MediaBoard({
                 ))}
               </div>
 
-              <label className="grid min-h-56 cursor-pointer place-items-center rounded-[2rem] border border-dashed border-white/55 bg-white/35 px-5 py-8 text-center transition hover:bg-white/55 dark:border-white/15 dark:bg-white/10 dark:hover:bg-white/15">
+              <label className="grid min-h-48 cursor-pointer place-items-center rounded-2xl border border-dashed border-white/55 bg-white/35 px-5 py-8 text-center transition hover:bg-white/55 dark:border-white/15 dark:bg-white/10 dark:hover:bg-white/15 sm:min-h-56">
                 <div>
                   <CloudUpload className="mx-auto size-12 text-coral-500" />
                   <p className="mt-4 text-lg font-black">

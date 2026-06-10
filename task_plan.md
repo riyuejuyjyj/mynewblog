@@ -56,14 +56,14 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 ## Next Optimization Plan: 2026-06-10
 
 ### P0: Commit/Push Follow-Through
-- [ ] Confirm and push the two local commits to `origin/main`.
-- [ ] Treat commit + push as the default finish step for future coding work, unless the user says not to push or the safety layer requires explicit remote confirmation.
+- [x] Confirm and push the two local commits to `origin/main`.
+- [x] Treat commit + push as the default finish step for future coding work, unless the user says not to push or the safety layer requires explicit remote confirmation.
 - [ ] Keep the standard verification gate before each push: `bunx tsc --noEmit`, `bun run lint`, `bun run build`.
 
 ### P1: Studio Mobile Admin Pass
 - [ ] Verify the new mobile Studio shell with an authenticated session, not only the auth gate.
 - [ ] Check no top-bar action, tab label, badge, or stats cell wraps awkwardly at 360-430px.
-- [ ] Reduce oversized mobile spacing in `posts-board.tsx`, `comments-board.tsx`, `media-board.tsx`, and key editor panels.
+- [x] Reduce oversized mobile spacing in `posts-board.tsx`, `comments-board.tsx`, `media-board.tsx`, and key editor panels.
 - [ ] Make repeated admin controls feel like a dense work surface: compact headers, stable button sizes, no nested card feel.
 
 ### P2: Publishing Workflow
@@ -94,6 +94,7 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - The next mainline is production readiness plus blog/Studio publishing, not deeper playback instrumentation.
 - Cloudflare deployment target is Workers via `@opennextjs/cloudflare`, not a static export and not plain `next start`.
 - GitHub Actions is the preferred production build/deploy path because it uses Linux CI and avoids the current Windows symlink blocker.
+- GitHub `origin/main` push is now the normal deployment trigger; pushing to GitHub starts the Cloudflare deployment path.
 
 ## Errors Encountered
 - `bun run build:cloudflare` reaches OpenNext bundling but fails on Windows symlink creation for traced `node_modules` packages (`EPERM: operation not permitted, symlink ... @aws-sdk/client-s3`). Retrying with elevated permissions produced the same error. Treat this as an environment blocker and rerun from WSL/Linux CI.
@@ -111,4 +112,4 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - Cloudflare build/deploy should run from GitHub Actions/Linux CI first. WSL remains useful for local reproduction, but it is no longer the main release path.
 
 ## Status
-Currently in Phase 2: Cloudflare/OpenNext setup, production readiness documentation, and a manual GitHub Actions workflow are in place. Linux CI build verification passed; deploy exposed a Worker script size blocker, and the current patch removes heavy server-side music plugin execution before rerunning deploy.
+Currently in P1 of the 2026-06-10 optimization plan: the pending local commits were pushed to GitHub, and the first Studio mobile density pass covered posts, comments, media, and editor shell spacing. Next is authenticated visual QA plus any follow-up fixes from real viewport checks.

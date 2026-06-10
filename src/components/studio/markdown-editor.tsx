@@ -594,7 +594,7 @@ export function MarkdownEditor({
 
   return (
     <div className="relative" onClick={() => setContextMenu(null)}>
-      <section className="grid min-h-[760px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+      <section className="grid min-h-[640px] gap-4 xl:min-h-[760px] xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside
           className="studio-panel flex min-h-[360px] flex-col overflow-hidden xl:min-h-[760px]"
           onContextMenu={(event) => openContextMenu(event)}
@@ -688,7 +688,7 @@ export function MarkdownEditor({
                   }
                   required
                   placeholder="文章标题..."
-                  className="w-full cursor-text bg-transparent text-3xl font-black tracking-[0] text-slate-950 outline-none placeholder:text-slate-300 dark:text-white dark:placeholder:text-slate-700 sm:text-4xl"
+                  className="w-full cursor-text bg-transparent text-2xl font-black tracking-[0] text-slate-950 outline-none placeholder:text-slate-300 dark:text-white dark:placeholder:text-slate-700 sm:text-4xl"
                 />
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-300">
                   <span>{wordCount} 字</span>
@@ -763,7 +763,7 @@ export function MarkdownEditor({
                 {uploadStatus}
               </span>
             ) : null}
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto">
               <Button
                 type="button"
                 variant="glass"
@@ -805,14 +805,14 @@ export function MarkdownEditor({
                 onChange={(event) => onChange({ content: event.target.value })}
                 placeholder="用 Markdown 开始写作..."
                 className={cn(
-                  "min-h-[620px] resize-none bg-white/25 px-5 py-7 font-mono text-[15px] leading-8 text-slate-800 outline-none backdrop-blur-xl dark:bg-slate-950/20 dark:text-slate-100 sm:px-8",
+                  "min-h-[520px] resize-none bg-white/25 px-5 py-7 font-mono text-[15px] leading-8 text-slate-800 outline-none backdrop-blur-xl dark:bg-slate-950/20 dark:text-slate-100 sm:min-h-[620px] sm:px-8",
                   mode === "split" && "border-r border-white/35 dark:border-white/10",
                 )}
               />
             ) : null}
 
             {mode !== "write" ? (
-              <article className="min-h-[620px] overflow-y-auto bg-white/20 px-5 py-7 text-slate-800 dark:bg-slate-950/10 dark:text-slate-100 sm:px-8">
+              <article className="min-h-[520px] overflow-y-auto bg-white/20 px-5 py-7 text-slate-800 dark:bg-slate-950/10 dark:text-slate-100 sm:min-h-[620px] sm:px-8">
                 <MarkdownPreview value={form.content} />
               </article>
             ) : null}

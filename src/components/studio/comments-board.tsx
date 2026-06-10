@@ -42,10 +42,12 @@ export function CommentsBoard({
 
   return (
     <section className="studio-panel overflow-hidden">
-      <div className="flex flex-col gap-3 border-b border-white/35 p-6 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-white/35 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div>
           <p className="text-xs font-black uppercase text-slate-400">Comments</p>
-          <h2 className="mt-1 text-3xl font-black tracking-[0]">评论审核</h2>
+          <h2 className="mt-1 text-2xl font-black tracking-[0] sm:text-3xl">
+            评论审核
+          </h2>
         </div>
         <Badge className="gap-2">
           <ShieldCheck className="size-3.5" />
@@ -53,15 +55,15 @@ export function CommentsBoard({
         </Badge>
       </div>
 
-      <div className="grid gap-4 p-6 lg:grid-cols-2">
+      <div className="grid gap-3 p-4 sm:p-5 lg:grid-cols-2">
         {isLoading ? (
-          <p className="rounded-3xl border border-dashed border-white/45 p-10 text-center text-sm font-bold text-slate-400 dark:border-white/10 lg:col-span-2">
+          <p className="rounded-2xl border border-dashed border-white/45 p-8 text-center text-sm font-bold text-slate-400 dark:border-white/10 lg:col-span-2">
             正在读取评论...
           </p>
         ) : null}
 
         {!isLoading && comments.length === 0 ? (
-          <p className="rounded-3xl border border-dashed border-white/45 p-10 text-center text-sm font-bold text-slate-400 dark:border-white/10 lg:col-span-2">
+          <p className="rounded-2xl border border-dashed border-white/45 p-8 text-center text-sm font-bold text-slate-400 dark:border-white/10 lg:col-span-2">
             暂时还没有评论。
           </p>
         ) : null}
@@ -69,15 +71,17 @@ export function CommentsBoard({
         {comments.map((comment) => (
           <article
             key={comment.id}
-            className="rounded-3xl border border-white/45 bg-white/30 p-5 dark:border-white/10 dark:bg-white/10"
+            className="rounded-2xl border border-white/45 bg-white/30 p-4 dark:border-white/10 dark:bg-white/10"
           >
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <span className="grid size-10 place-items-center rounded-2xl bg-coral-100 text-coral-700 dark:bg-coral-400/15 dark:text-coral-200">
                   <MessageCircle className="size-5" />
                 </span>
-                <div>
-                  <h3 className="font-black tracking-[0]">{comment.authorName}</h3>
+                <div className="min-w-0">
+                  <h3 className="truncate font-black tracking-[0]">
+                    {comment.authorName}
+                  </h3>
                   <p className="text-xs font-bold text-slate-500 dark:text-slate-300">
                     /{comment.postSlug}
                   </p>
@@ -85,10 +89,10 @@ export function CommentsBoard({
               </div>
               <Badge>{comment.status}</Badge>
             </div>
-            <p className="mt-4 text-sm leading-7 text-slate-700 dark:text-slate-200">
+            <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-200">
               {comment.body}
             </p>
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               {(
                 [
                   ["approved", "通过"],
@@ -101,6 +105,7 @@ export function CommentsBoard({
                   type="button"
                   variant={comment.status === status ? "default" : "glass"}
                   size="sm"
+                  className="flex-1 sm:flex-none"
                   disabled={isUpdating || comment.status === status}
                   onClick={() => onStatusChange(comment.id, status)}
                 >
@@ -111,6 +116,7 @@ export function CommentsBoard({
                 type="button"
                 variant="glass"
                 size="sm"
+                className="flex-1 sm:flex-none"
                 disabled={isDeleting}
                 onClick={() => setPendingDeleteComment(comment)}
               >

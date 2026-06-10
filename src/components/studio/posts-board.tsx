@@ -61,19 +61,21 @@ export function PostsBoard({
 
   return (
     <section className="studio-panel overflow-hidden">
-      <div className="flex flex-col gap-4 border-b border-white/35 p-6 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 border-b border-white/35 p-4 dark:border-white/10 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-xs font-black uppercase text-slate-400">Archive</p>
-          <h2 className="mt-1 text-3xl font-black tracking-[0]">文章与草稿</h2>
+          <h2 className="mt-1 text-2xl font-black tracking-[0] sm:text-3xl">
+            文章与草稿
+          </h2>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <label className="flex h-11 items-center gap-2 rounded-full border border-white/45 bg-white/35 px-4 text-sm font-bold text-slate-500 dark:border-white/10 dark:bg-white/10">
+        <div className="grid w-full grid-cols-3 gap-2 lg:w-auto lg:flex lg:flex-wrap lg:justify-end">
+          <label className="col-span-3 flex h-10 min-w-0 items-center gap-2 rounded-full border border-white/45 bg-white/35 px-3 text-sm font-bold text-slate-500 dark:border-white/10 dark:bg-white/10 lg:col-span-1 lg:w-56">
             <Search className="size-4" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索标题 / 标签"
-              className="w-36 bg-transparent outline-none placeholder:text-slate-400"
+              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400"
             />
           </label>
           {(
@@ -87,7 +89,7 @@ export function PostsBoard({
               key={value}
               type="button"
               onClick={() => setFilter(value)}
-              className={`h-11 rounded-full px-4 text-xs font-black transition ${
+              className={`h-10 rounded-full px-3 text-xs font-black transition ${
                 filter === value
                   ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
                   : "bg-white/35 text-slate-600 hover:bg-white/60 dark:bg-white/10 dark:text-slate-300"
@@ -96,28 +98,28 @@ export function PostsBoard({
               {label}
             </button>
           ))}
-          <Button type="button" onClick={onNew}>
+          <Button type="button" className="col-span-3 lg:col-span-1" onClick={onNew}>
             <FilePlus2 className="size-4" />
             新建
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 p-6">
+      <div className="grid gap-3 p-4 sm:p-5">
         {isLoading ? (
-          <p className="rounded-3xl border border-dashed border-white/45 p-10 text-center text-sm font-bold text-slate-400 dark:border-white/10">
+          <p className="rounded-2xl border border-dashed border-white/45 p-8 text-center text-sm font-bold text-slate-400 dark:border-white/10">
             正在读取文章...
           </p>
         ) : null}
 
         {!isLoading && posts.length === 0 ? (
-          <p className="rounded-3xl border border-dashed border-white/45 p-10 text-center text-sm font-bold text-slate-400 dark:border-white/10">
+          <p className="rounded-2xl border border-dashed border-white/45 p-8 text-center text-sm font-bold text-slate-400 dark:border-white/10">
             还没有文章，先从 Markdown 写作台开始。
           </p>
         ) : null}
 
         {!isLoading && posts.length > 0 && visiblePosts.length === 0 ? (
-          <p className="rounded-3xl border border-dashed border-white/45 p-10 text-center text-sm font-bold text-slate-400 dark:border-white/10">
+          <p className="rounded-2xl border border-dashed border-white/45 p-8 text-center text-sm font-bold text-slate-400 dark:border-white/10">
             没有匹配的文章。
           </p>
         ) : null}
@@ -125,7 +127,7 @@ export function PostsBoard({
         {visiblePosts.map((post) => (
           <article
             key={post.id}
-            className="group grid gap-4 rounded-3xl border border-white/45 bg-white/30 p-4 transition hover:-translate-y-1 hover:bg-white/45 hover:shadow-xl hover:shadow-slate-950/10 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15 lg:grid-cols-[220px_1fr_auto]"
+            className="group grid gap-3 rounded-2xl border border-white/45 bg-white/30 p-3 transition hover:bg-white/45 hover:shadow-xl hover:shadow-slate-950/10 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15 sm:p-4 lg:grid-cols-[200px_1fr_auto]"
           >
             <div className="aspect-[16/10] overflow-hidden rounded-2xl bg-slate-950/5 dark:bg-white/10">
               <img
@@ -144,7 +146,7 @@ export function PostsBoard({
                   </Badge>
                 ) : null}
               </div>
-              <h3 className="mt-4 line-clamp-1 text-2xl font-black tracking-[0]">
+              <h3 className="mt-3 line-clamp-1 text-lg font-black tracking-[0] sm:mt-4 sm:text-2xl">
                 {post.title}
               </h3>
               <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
@@ -159,14 +161,20 @@ export function PostsBoard({
               </div>
             </div>
             <div className="flex items-center gap-2 lg:flex-col lg:justify-center">
-              <Button type="button" variant="glass" size="sm" onClick={() => onEdit(post)}>
+              <Button
+                type="button"
+                className="flex-1 lg:flex-none"
+                variant="glass"
+                size="sm"
+                onClick={() => onEdit(post)}
+              >
                 <Edit3 className="size-4" />
                 编辑
               </Button>
               <button
                 type="button"
                 onClick={() => setPendingDeletePost(post)}
-                className="inline-flex h-9 items-center gap-2 rounded-full px-4 text-xs font-black text-coral-700 transition hover:bg-coral-100 dark:text-coral-200 dark:hover:bg-coral-400/10"
+                className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-full px-4 text-xs font-black text-coral-700 transition hover:bg-coral-100 dark:text-coral-200 dark:hover:bg-coral-400/10 lg:flex-none"
               >
                 <Trash2 className="size-4" />
                 删除
