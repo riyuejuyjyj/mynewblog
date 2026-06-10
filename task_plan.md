@@ -74,7 +74,7 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - [ ] Continue splitting large editor logic only where it reduces real complexity.
 
 ### P3: Comments And Replies
-- [ ] Make Studio comments reflect the public threaded model: parent/reply context, status filters, counts, and safe delete.
+- [x] Make Studio comments reflect the public threaded model: parent/reply context, status filters, counts, and safe delete.
 - [ ] Consider adding a Studio reply path if moderation needs author replies from the backend.
 - [ ] Add basic anti-spam/rate-limit/error handling before production exposure.
 - [ ] Keep public copy as "评论" and "回复"; avoid "回声/回响" wording.
@@ -113,4 +113,4 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - Cloudflare build/deploy should run from GitHub Actions/Linux CI first. WSL remains useful for local reproduction, but it is no longer the main release path.
 
 ## Status
-Currently in P1 of the 2026-06-10 optimization plan: the pending local commits were pushed to GitHub, and the first Studio mobile density pass covered posts, comments, media, and editor shell spacing. Next is authenticated visual QA plus any follow-up fixes from real viewport checks.
+Currently continuing the 2026-06-10 optimization plan: the first Studio mobile density pass is in place, and Studio comments now expose status filters plus parent/reply context. Next is authenticated visual QA, optional Studio author replies, and basic comment abuse controls.
