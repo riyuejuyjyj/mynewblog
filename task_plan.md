@@ -46,10 +46,48 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
   - Write a short deploy/runbook note covering env vars, migrations, and rollback.
 
 ## Immediate Next Actions
-1. Push the server-side music plugin/LX script reduction patch and rerun the `Cloudflare` workflow with `deploy` checked.
-2. If Cloudflare still rejects the Worker at the Free plan 3 MiB limit, treat Workers Paid as the likely deployment requirement for this Next/OpenNext SSR app.
-3. Verify the first deployed Worker URL, then bind/verify the production domain `https://tong777.ccwu.cc`.
-4. Resume the highest-impact Studio publishing and media blockers after the deployment path is unblocked.
+1. Push the two current local commits after confirming the remote if the safety layer asks again:
+   - `c9a7cbb style(posts): refine mobile prose and reply threads`
+   - `1a870cf style(studio): refine admin console layout`
+2. Run a focused Studio mobile QA pass on `/studio` at 390px, 768px, and desktop widths.
+3. Tighten the remaining Studio boards after the shell/dashboard pass: posts, comments, media, and editor.
+4. Resume production readiness after the Studio publishing/moderation flow is comfortable enough for daily use.
+
+## Next Optimization Plan: 2026-06-10
+
+### P0: Commit/Push Follow-Through
+- [ ] Confirm and push the two local commits to `origin/main`.
+- [ ] Treat commit + push as the default finish step for future coding work, unless the user says not to push or the safety layer requires explicit remote confirmation.
+- [ ] Keep the standard verification gate before each push: `bunx tsc --noEmit`, `bun run lint`, `bun run build`.
+
+### P1: Studio Mobile Admin Pass
+- [ ] Verify the new mobile Studio shell with an authenticated session, not only the auth gate.
+- [ ] Check no top-bar action, tab label, badge, or stats cell wraps awkwardly at 360-430px.
+- [ ] Reduce oversized mobile spacing in `posts-board.tsx`, `comments-board.tsx`, `media-board.tsx`, and key editor panels.
+- [ ] Make repeated admin controls feel like a dense work surface: compact headers, stable button sizes, no nested card feel.
+
+### P2: Publishing Workflow
+- [ ] Strengthen create/edit/delete/publish states in Studio with clear pending, success, and failure feedback.
+- [ ] Tighten slug, title, cover, excerpt, tags, reading time, featured, and published validation.
+- [ ] Improve Markdown editor ergonomics on mobile: metadata editing, preview switching, upload flow, and save status.
+- [ ] Continue splitting large editor logic only where it reduces real complexity.
+
+### P3: Comments And Replies
+- [ ] Make Studio comments reflect the public threaded model: parent/reply context, status filters, counts, and safe delete.
+- [ ] Consider adding a Studio reply path if moderation needs author replies from the backend.
+- [ ] Add basic anti-spam/rate-limit/error handling before production exposure.
+- [ ] Keep public copy as "评论" and "回复"; avoid "回声/回响" wording.
+
+### P4: Media/R2 Reliability
+- [ ] Smoke test signed upload, server fallback upload, object preview URL, public URL resolution, and delete behavior.
+- [ ] Add clear empty/error states for unconfigured R2, failed previews, and missing object keys.
+- [ ] Check image fields used by posts and Markdown preview resolve consistently through `resolveStorageObjectUrl`.
+
+### P5: Production Readiness
+- [ ] Re-run the Cloudflare/OpenNext path from Linux/GitHub Actions after the Studio flow is stable.
+- [ ] Recheck environment readiness for Neon, Better Auth, R2, and Cloudflare secrets.
+- [ ] Smoke test `/`, `/posts`, `/posts/[slug]`, `/studio`, auth, comments, media upload, and music background playback.
+- [ ] Update the deploy/runbook note with final env vars, migration command, verification commands, and rollback notes.
 
 ## Decisions Made
 - Music player work is paused as a feature track and moved to bugfix-only.
