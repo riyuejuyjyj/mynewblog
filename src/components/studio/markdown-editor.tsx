@@ -11,9 +11,6 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
-  Heading1,
-  Heading2,
-  ImageIcon,
   ImageUp,
   Italic,
   Link2,
@@ -34,6 +31,8 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type ClipboardEvent,
+  type FormEvent,
   type MouseEvent,
 } from "react";
 
@@ -67,7 +66,8 @@ type MarkdownEditorProps = {
   onUploadImage: (file: File, folder: UploadFolder) => Promise<string | null>;
 };
 
-type EditorMode = "write" | "split" | "preview";
+type EditorMode = "write" | "split" | "source" | "preview";
+type RichBlockStyle = "paragraph" | "h1" | "h2" | "h3" | "quote";
 type LocalNodeType = "folder" | "doc";
 
 type LocalDocNode = {
@@ -146,18 +146,30 @@ const initialNodes: LocalDocNode[] = [
   },
 ];
 
-const tools = [
-  { label: "一级标题", icon: Heading1, before: "# ", after: "" },
-  { label: "二级标题", icon: Heading2, before: "## ", after: "" },
-  { label: "加粗", icon: Bold, before: "**", after: "**" },
-  { label: "斜体", icon: Italic, before: "*", after: "*" },
-  { label: "引用", icon: Quote, before: "> ", after: "" },
-  { label: "无序列表", icon: List, before: "- ", after: "" },
-  { label: "有序列表", icon: ListOrdered, before: "1. ", after: "" },
-  { label: "代码块", icon: Code2, before: "```\n", after: "\n```" },
-  { label: "链接", icon: Link2, before: "[", after: "](https://)" },
-  { label: "图片", icon: ImageIcon, before: "![alt](", after: ")" },
+const blockStyles: Array<{ label: string; value: RichBlockStyle }> = [
+  { label: "正文", value: "paragraph" },
+  { label: "标题 1", value: "h1" },
+  { label: "标题 2", value: "h2" },
+  { label: "标题 3", value: "h3" },
+  { label: "引用", value: "quote" },
 ];
+
+const inlineTools = [
+  {
+    command: "bold",
+    icon: Bold,
+    label: "加粗",
+    markdownAfter: "**",
+    markdownBefore: "**",
+  },
+  {
+    command: "italic",
+    icon: Italic,
+    label: "斜体",
+    markdownAfter: "*",
+    markdownBefore: "*",
+  },
+] as const;
 
 function createNodeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -220,6 +232,298 @@ function hasAutoSavePayload(value: StudioPostForm) {
   );
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function escapeAttribute(value: string) {
+  return escapeHtml(value).replaceAll("'", "&#39;");
+}
+
+function normalizeEditorUrl(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) return "";
+  if (/^(https?:|mailto:|\/|#)/i.test(trimmed)) return trimmed;
+
+  return `https://${trimmed}`;
+}
+
+function renderInlineMarkdownToHtml(text: string) {
+  const chunks: string[] = [];
+  const pattern =
+    /(!\[[^\]]*]\([^)]+\)|\[[^\]]+]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(pattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+
+    if (index > lastIndex) {
+      chunks.push(escapeHtml(text.slice(lastIndex, index)));
+    }
+
+    if (token.startsWith("![")) {
+      const parts = token.match(/^!\[([^\]]*)]\(([^)]+)\)$/);
+
+      if (parts) {
+        const source = parts[2];
+        chunks.push(
+          `<img src="${escapeAttribute(resolveStorageObjectUrl(source))}" alt="${escapeAttribute(parts[1])}" data-markdown-src="${escapeAttribute(source)}" />`,
+        );
+      }
+    } else if (token.startsWith("[")) {
+      const parts = token.match(/^\[([^\]]+)]\(([^)]+)\)$/);
+
+      if (parts) {
+        const href = normalizeEditorUrl(parts[2]);
+        chunks.push(
+          `<a href="${escapeAttribute(href)}" data-markdown-href="${escapeAttribute(parts[2])}">${escapeHtml(parts[1])}</a>`,
+        );
+      }
+    } else if (token.startsWith("`")) {
+      chunks.push(`<code>${escapeHtml(token.slice(1, -1))}</code>`);
+    } else if (token.startsWith("**")) {
+      chunks.push(`<strong>${escapeHtml(token.slice(2, -2))}</strong>`);
+    } else if (token.startsWith("*")) {
+      chunks.push(`<em>${escapeHtml(token.slice(1, -1))}</em>`);
+    }
+
+    lastIndex = index + token.length;
+  }
+
+  if (lastIndex < text.length) {
+    chunks.push(escapeHtml(text.slice(lastIndex)));
+  }
+
+  return chunks.join("");
+}
+
+function readMarkdownList(lines: string[], start: number, ordered: boolean) {
+  const items: string[] = [];
+  let index = start;
+  const pattern = ordered ? /^\d+\.\s+(.+)$/ : /^[-*]\s+(.+)$/;
+
+  while (index < lines.length) {
+    const match = lines[index].trim().match(pattern);
+
+    if (!match) break;
+
+    items.push(match[1]);
+    index += 1;
+  }
+
+  return { items, nextIndex: index };
+}
+
+function markdownToEditableHtml(value: string) {
+  const lines = value.split("\n");
+  const blocks: string[] = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("```")) {
+      const codeLines: string[] = [];
+      index += 1;
+
+      while (index < lines.length && !lines[index].trim().startsWith("```")) {
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+
+      blocks.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("### ")) {
+      blocks.push(`<h3>${renderInlineMarkdownToHtml(trimmed.slice(4))}</h3>`);
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("## ")) {
+      blocks.push(`<h2>${renderInlineMarkdownToHtml(trimmed.slice(3))}</h2>`);
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("# ")) {
+      blocks.push(`<h1>${renderInlineMarkdownToHtml(trimmed.slice(2))}</h1>`);
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("> ")) {
+      const quoteLines: string[] = [];
+
+      while (index < lines.length && lines[index].trim().startsWith("> ")) {
+        quoteLines.push(lines[index].trim().slice(2));
+        index += 1;
+      }
+
+      blocks.push(
+        `<blockquote><p>${renderInlineMarkdownToHtml(quoteLines.join(" "))}</p></blockquote>`,
+      );
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(trimmed)) {
+      const list = readMarkdownList(lines, index, false);
+      blocks.push(
+        `<ul>${list.items
+          .map((item) => `<li>${renderInlineMarkdownToHtml(item)}</li>`)
+          .join("")}</ul>`,
+      );
+      index = list.nextIndex;
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const list = readMarkdownList(lines, index, true);
+      blocks.push(
+        `<ol>${list.items
+          .map((item) => `<li>${renderInlineMarkdownToHtml(item)}</li>`)
+          .join("")}</ol>`,
+      );
+      index = list.nextIndex;
+      continue;
+    }
+
+    const paragraphLines = [trimmed];
+    index += 1;
+
+    while (index < lines.length) {
+      const next = lines[index].trim();
+
+      if (
+        !next ||
+        next.startsWith("#") ||
+        next.startsWith("> ") ||
+        next.startsWith("```") ||
+        /^[-*]\s+/.test(next) ||
+        /^\d+\.\s+/.test(next)
+      ) {
+        break;
+      }
+
+      paragraphLines.push(next);
+      index += 1;
+    }
+
+    blocks.push(`<p>${renderInlineMarkdownToHtml(paragraphLines.join(" "))}</p>`);
+  }
+
+  return blocks.length > 0 ? blocks.join("") : "";
+}
+
+function getInlineMarkdown(node: ChildNode): string {
+  if (node.nodeType === 3) {
+    return node.textContent?.replace(/\u00a0/g, " ") ?? "";
+  }
+
+  if (node.nodeType !== 1) {
+    return "";
+  }
+
+  const element = node as HTMLElement;
+  const tagName = element.tagName.toLowerCase();
+  const children = Array.from(element.childNodes).map(getInlineMarkdown).join("");
+
+  if (tagName === "br") return "\n";
+  if (tagName === "strong" || tagName === "b") return `**${children}**`;
+  if (tagName === "em" || tagName === "i") return `*${children}*`;
+  if (tagName === "code") return `\`${element.textContent ?? ""}\``;
+  if (tagName === "a") {
+    const href =
+      element.getAttribute("data-markdown-href") ?? element.getAttribute("href") ?? "";
+
+    return href ? `[${children || href}](${href})` : children;
+  }
+  if (tagName === "img") {
+    const source =
+      element.getAttribute("data-markdown-src") ?? element.getAttribute("src") ?? "";
+    const alt = element.getAttribute("alt") ?? "image";
+
+    return source ? `![${alt}](${source})` : "";
+  }
+
+  return children;
+}
+
+function blockNodeToMarkdown(node: ChildNode, listIndex?: number): string {
+  if (node.nodeType === 3) {
+    return getInlineMarkdown(node).trim();
+  }
+
+  if (node.nodeType !== 1) {
+    return "";
+  }
+
+  const element = node as HTMLElement;
+  const tagName = element.tagName.toLowerCase();
+  const inline = () =>
+    Array.from(element.childNodes).map(getInlineMarkdown).join("").trim();
+
+  if (tagName === "h1") return `# ${inline()}`;
+  if (tagName === "h2") return `## ${inline()}`;
+  if (tagName === "h3") return `### ${inline()}`;
+  if (tagName === "blockquote") {
+    const content = Array.from(element.childNodes)
+      .map((child) => blockNodeToMarkdown(child))
+      .filter(Boolean)
+      .join("\n")
+      .split("\n")
+      .map((line) => `> ${line}`)
+      .join("\n");
+
+    return content || `> ${inline()}`;
+  }
+  if (tagName === "ul" || tagName === "ol") {
+    return Array.from(element.children)
+      .filter((child) => child.tagName.toLowerCase() === "li")
+      .map((child, index) =>
+        blockNodeToMarkdown(child, tagName === "ol" ? index + 1 : undefined),
+      )
+      .filter(Boolean)
+      .join("\n");
+  }
+  if (tagName === "li") {
+    const marker = listIndex ? `${listIndex}.` : "-";
+    return `${marker} ${inline()}`;
+  }
+  if (tagName === "pre") {
+    return `\`\`\`\n${element.textContent?.trimEnd() ?? ""}\n\`\`\``;
+  }
+  if (tagName === "div" || tagName === "p") {
+    return inline();
+  }
+
+  return inline();
+}
+
+function editableHtmlToMarkdown(element: HTMLElement) {
+  return Array.from(element.childNodes)
+    .map((node) => blockNodeToMarkdown(node))
+    .filter(Boolean)
+    .join("\n\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function formatAutoSaveTime(value: Date | null) {
   if (!value) {
     return "";
@@ -273,6 +577,8 @@ export function MarkdownEditor({
   onUploadImage,
 }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const richEditorRef = useRef<HTMLDivElement>(null);
+  const lastRichMarkdownRef = useRef(form.content);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const coverPreviewUrlRef = useRef<string | null>(null);
@@ -281,7 +587,7 @@ export function MarkdownEditor({
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveInFlightRef = useRef(false);
   const lastAutoSavedSnapshotRef = useRef(createAutoSaveSnapshot(form));
-  const [mode, setMode] = useState<EditorMode>("split");
+  const [mode, setMode] = useState<EditorMode>("write");
   const [nodes, setNodes] = useState<LocalDocNode[]>(initialNodes);
   const [activeLocalDocId, setActiveLocalDocId] = useState(CURRENT_DOC_ID);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -290,6 +596,7 @@ export function MarkdownEditor({
     null,
   );
   const [deletePostOpen, setDeletePostOpen] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishDraft, setPublishDraft] = useState<PublishDraft>(() => ({
     category: form.category,
@@ -540,6 +847,179 @@ export function MarkdownEditor({
     [],
   );
 
+  useEffect(() => {
+    const editor = richEditorRef.current;
+
+    if (!editor || mode === "source") {
+      return;
+    }
+
+    if (
+      form.content === lastRichMarkdownRef.current &&
+      editor.innerHTML.trim()
+    ) {
+      return;
+    }
+
+    editor.innerHTML = markdownToEditableHtml(form.content);
+    lastRichMarkdownRef.current = form.content;
+  }, [form.content, mode]);
+
+  function updateContentFromRichEditor() {
+    const editor = richEditorRef.current;
+
+    if (!editor) {
+      return;
+    }
+
+    const nextContent = editableHtmlToMarkdown(editor);
+    lastRichMarkdownRef.current = nextContent;
+    onChange({ content: nextContent });
+  }
+
+  function handleRichInput(event: FormEvent<HTMLDivElement>) {
+    const nextContent = editableHtmlToMarkdown(event.currentTarget);
+    lastRichMarkdownRef.current = nextContent;
+    onChange({ content: nextContent });
+  }
+
+  function handleRichPaste(event: ClipboardEvent<HTMLDivElement>) {
+    const text = event.clipboardData.getData("text/plain");
+
+    if (!text) {
+      return;
+    }
+
+    event.preventDefault();
+    document.execCommand("insertText", false, text);
+    updateContentFromRichEditor();
+  }
+
+  function runRichCommand(command: string, value?: string) {
+    const editor = richEditorRef.current;
+
+    if (!editor || mode === "source") {
+      return false;
+    }
+
+    editor.focus();
+    document.execCommand(command, false, value);
+    updateContentFromRichEditor();
+
+    return true;
+  }
+
+  function applyInlineFormat(
+    command: "bold" | "italic",
+    markdownBefore: string,
+    markdownAfter: string,
+  ) {
+    if (mode === "preview") {
+      return;
+    }
+
+    if (runRichCommand(command)) {
+      return;
+    }
+
+    insertMarkdown(markdownBefore, markdownAfter);
+  }
+
+  function applyBlockStyle(style: RichBlockStyle) {
+    if (mode === "preview") {
+      return;
+    }
+
+    const blockMap: Record<RichBlockStyle, string> = {
+      h1: "h1",
+      h2: "h2",
+      h3: "h3",
+      paragraph: "p",
+      quote: "blockquote",
+    };
+
+    if (runRichCommand("formatBlock", blockMap[style])) {
+      return;
+    }
+
+    const prefixMap: Record<RichBlockStyle, string> = {
+      h1: "# ",
+      h2: "## ",
+      h3: "### ",
+      paragraph: "",
+      quote: "> ",
+    };
+
+    insertMarkdown(prefixMap[style], "");
+  }
+
+  function applyList(ordered: boolean) {
+    if (mode === "preview") {
+      return;
+    }
+
+    if (runRichCommand(ordered ? "insertOrderedList" : "insertUnorderedList")) {
+      return;
+    }
+
+    insertMarkdown(ordered ? "1. " : "- ", "");
+  }
+
+  function insertCodeBlock() {
+    if (mode === "preview") {
+      return;
+    }
+
+    if (
+      runRichCommand(
+        "insertHTML",
+        "<pre><code>在这里写代码</code></pre><p><br></p>",
+      )
+    ) {
+      return;
+    }
+
+    insertMarkdown("```\n", "\n```");
+  }
+
+  function insertImageReference(url: string, alt: string) {
+    if (mode === "preview") {
+      return;
+    }
+
+    const markdown = `![${alt}](${url})`;
+
+    if (
+      runRichCommand(
+        "insertHTML",
+        `<img src="${escapeAttribute(resolveStorageObjectUrl(url))}" alt="${escapeAttribute(alt)}" data-markdown-src="${escapeAttribute(url)}" /><p><br></p>`,
+      )
+    ) {
+      return;
+    }
+
+    insertMarkdown(markdown, "");
+  }
+
+  function submitLinkDialog(value: string) {
+    if (mode === "preview") {
+      setLinkDialogOpen(false);
+      return;
+    }
+
+    const href = normalizeEditorUrl(value);
+
+    if (!href) {
+      return;
+    }
+
+    if (!runRichCommand("createLink", href)) {
+      insertMarkdown("[", `](${href})`);
+    }
+
+    setLinkDialogOpen(false);
+  }
+
   function replaceCoverPreviewUrl(value: string | null) {
     if (coverPreviewUrlRef.current) {
       URL.revokeObjectURL(coverPreviewUrlRef.current);
@@ -587,10 +1067,16 @@ export function MarkdownEditor({
   }
 
   function insertMarkdown(before: string, after: string) {
+    if (mode === "preview") {
+      return;
+    }
+
     const textarea = textareaRef.current;
 
     if (!textarea) {
-      onChange({ content: `${form.content}${before}${after}` });
+      const next = `${form.content}${before}${after}`;
+      lastRichMarkdownRef.current = next;
+      onChange({ content: next });
       return;
     }
 
@@ -599,6 +1085,7 @@ export function MarkdownEditor({
     const selected = form.content.slice(start, end);
     const next = `${form.content.slice(0, start)}${before}${selected}${after}${form.content.slice(end)}`;
 
+    lastRichMarkdownRef.current = next;
     onChange({ content: next });
 
     window.requestAnimationFrame(() => {
@@ -772,7 +1259,7 @@ export function MarkdownEditor({
       const url = await onUploadImage(file, "attachments");
 
       if (url) {
-        insertMarkdown(`![${file.name}](${url})`, "");
+        insertImageReference(url, file.name);
       }
     } catch {
       // The parent owns the visible upload status; keep the editor responsive.
@@ -1010,8 +1497,9 @@ export function MarkdownEditor({
               <div className="flex flex-wrap gap-2">
                 {(
                   [
-                    ["write", PanelLeftClose, "写作"],
-                    ["split", SplitSquareHorizontal, "双栏"],
+                    ["write", PanelLeftClose, "文稿"],
+                    ["split", SplitSquareHorizontal, "对照"],
+                    ["source", Code2, "源码"],
                     ["preview", Eye, "预览"],
                   ] as const
                 ).map(([itemMode, Icon, label]) => (
@@ -1042,20 +1530,82 @@ export function MarkdownEditor({
               type="file"
               onChange={handleEditorImageUpload}
             />
-            {tools.map((tool) => {
+            <select
+              aria-label="段落样式"
+              className="h-9 min-w-28 rounded-xl border border-white/45 bg-white/65 px-3 text-xs font-black text-slate-700 outline-none transition focus:border-coral-300 dark:border-white/10 dark:bg-white/10 dark:text-slate-100"
+              defaultValue="paragraph"
+              onChange={(event) => {
+                applyBlockStyle(event.target.value as RichBlockStyle);
+                event.currentTarget.value = "paragraph";
+              }}
+            >
+              {blockStyles.map((style) => (
+                <option key={style.value} value={style.value}>
+                  {style.label}
+                </option>
+              ))}
+            </select>
+            <span className="mx-1 h-7 w-px bg-slate-200 dark:bg-white/10" />
+            {inlineTools.map((tool) => {
               const Icon = tool.icon;
               return (
                 <button
                   key={tool.label}
                   type="button"
                   title={tool.label}
-                  onClick={() => insertMarkdown(tool.before, tool.after)}
+                  onClick={() =>
+                    applyInlineFormat(
+                      tool.command,
+                      tool.markdownBefore,
+                      tool.markdownAfter,
+                    )
+                  }
                   className="grid size-9 place-items-center rounded-xl text-slate-500 transition hover:bg-white/70 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
                 >
                   <Icon className="size-4" />
                 </button>
               );
             })}
+            <button
+              type="button"
+              title="引用"
+              onClick={() => applyBlockStyle("quote")}
+              className="grid size-9 place-items-center rounded-xl text-slate-500 transition hover:bg-white/70 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <Quote className="size-4" />
+            </button>
+            <button
+              type="button"
+              title="项目符号"
+              onClick={() => applyList(false)}
+              className="grid size-9 place-items-center rounded-xl text-slate-500 transition hover:bg-white/70 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <List className="size-4" />
+            </button>
+            <button
+              type="button"
+              title="编号列表"
+              onClick={() => applyList(true)}
+              className="grid size-9 place-items-center rounded-xl text-slate-500 transition hover:bg-white/70 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <ListOrdered className="size-4" />
+            </button>
+            <button
+              type="button"
+              title="代码块"
+              onClick={insertCodeBlock}
+              className="grid size-9 place-items-center rounded-xl text-slate-500 transition hover:bg-white/70 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <Code2 className="size-4" />
+            </button>
+            <button
+              type="button"
+              title="链接"
+              onClick={() => setLinkDialogOpen(true)}
+              className="grid size-9 place-items-center rounded-xl text-slate-500 transition hover:bg-white/70 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <Link2 className="size-4" />
+            </button>
             <button
               type="button"
               title="上传并插入图片"
@@ -1120,25 +1670,51 @@ export function MarkdownEditor({
           <div
             className={cn(
               "grid min-h-0 flex-1",
-              mode === "split" && "lg:grid-cols-2",
+              mode === "split" && "xl:grid-cols-2",
             )}
           >
-            {mode !== "preview" ? (
+            {mode !== "preview" && mode !== "source" ? (
+              <div
+                className={cn(
+                  "min-h-[560px] overflow-y-auto bg-slate-100/60 p-3 dark:bg-slate-950/25 sm:min-h-[660px] sm:p-6",
+                  mode === "split" &&
+                    "border-r border-white/35 dark:border-white/10",
+                )}
+              >
+                <div className="mx-auto min-h-[680px] w-full max-w-[820px] rounded-sm bg-white px-5 py-8 text-slate-950 shadow-2xl shadow-slate-950/10 ring-1 ring-slate-200/70 sm:px-12 sm:py-12">
+                  <div
+                    ref={richEditorRef}
+                    aria-label="文稿编辑器"
+                    className="rich-document-editor min-h-[600px] outline-none"
+                    contentEditable
+                    data-placeholder="直接开始写正文，选中文本后用上方工具栏排版。"
+                    role="textbox"
+                    suppressContentEditableWarning
+                    onInput={handleRichInput}
+                    onPaste={handleRichPaste}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {mode === "source" ? (
               <textarea
                 ref={textareaRef}
                 value={form.content}
-                onChange={(event) => onChange({ content: event.target.value })}
-                placeholder="用 Markdown 开始写作..."
-                className={cn(
-                  "min-h-[520px] resize-none bg-white/25 px-5 py-7 font-mono text-[15px] leading-8 text-slate-800 outline-none backdrop-blur-xl dark:bg-slate-950/20 dark:text-slate-100 sm:min-h-[620px] sm:px-8",
-                  mode === "split" && "border-r border-white/35 dark:border-white/10",
-                )}
+                onChange={(event) => {
+                  lastRichMarkdownRef.current = event.target.value;
+                  onChange({ content: event.target.value });
+                }}
+                placeholder="Markdown 源码..."
+                className="min-h-[560px] resize-none bg-slate-950 px-5 py-7 font-mono text-[14px] leading-7 text-slate-100 outline-none selection:bg-coral-400/30 sm:min-h-[660px] sm:px-8"
               />
             ) : null}
 
-            {mode !== "write" ? (
-              <article className="min-h-[520px] overflow-y-auto bg-white/20 px-5 py-7 text-slate-800 dark:bg-slate-950/10 dark:text-slate-100 sm:min-h-[620px] sm:px-8">
-                <MarkdownPreview value={form.content} />
+            {mode !== "write" && mode !== "source" ? (
+              <article className="min-h-[560px] overflow-y-auto bg-slate-100/45 p-3 text-slate-800 dark:bg-slate-950/15 dark:text-slate-100 sm:min-h-[660px] sm:p-6">
+                <div className="mx-auto min-h-[680px] w-full max-w-[820px] rounded-sm bg-white px-5 py-8 text-slate-950 shadow-2xl shadow-slate-950/10 ring-1 ring-slate-200/70 sm:px-12 sm:py-12">
+                  <MarkdownPreview value={form.content} />
+                </div>
               </article>
             ) : null}
           </div>
@@ -1210,6 +1786,17 @@ export function MarkdownEditor({
             setPendingTreeDeleteId(null);
           }
         }}
+      />
+
+      <TextInputDialog
+        confirmLabel="插入"
+        defaultValue="https://"
+        inputLabel="链接地址"
+        open={linkDialogOpen}
+        placeholder="https://example.com"
+        title="插入链接"
+        onSubmit={submitLinkDialog}
+        onOpenChange={setLinkDialogOpen}
       />
 
       <TextInputDialog

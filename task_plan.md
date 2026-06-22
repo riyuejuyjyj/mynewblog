@@ -71,7 +71,8 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - [x] Strengthen publish states in Studio with clear readiness feedback.
 - [x] Tighten slug, title, cover, excerpt, reading time, featured, and published validation.
 - [x] Add Markdown editor autosave with visible save status and unload protection.
-- [ ] Improve Markdown editor ergonomics on mobile: metadata editing, preview switching, and upload flow.
+- [x] Add a Word-style writing surface that keeps Markdown as the storage format while hiding common syntax behind toolbar actions.
+- [ ] Improve editor ergonomics on mobile: metadata editing, preview switching, and upload flow.
 - [ ] Continue splitting large editor logic only where it reduces real complexity.
 
 ### P3: Comments And Replies

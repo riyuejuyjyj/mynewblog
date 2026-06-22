@@ -91,6 +91,113 @@
       serif;
   }
 
+  .rich-document-editor {
+    color: rgb(15 23 42);
+    font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun",
+      serif;
+    line-height: 1.9;
+  }
+
+  .rich-document-editor:empty::before {
+    color: rgb(148 163 184);
+    content: attr(data-placeholder);
+    pointer-events: none;
+  }
+
+  .rich-document-editor h1,
+  .rich-document-editor h2,
+  .rich-document-editor h3 {
+    color: rgb(15 23 42);
+    font-weight: 900;
+    letter-spacing: 0;
+    line-height: 1.25;
+  }
+
+  .rich-document-editor h1 {
+    font-size: 2.35rem;
+    margin: 0 0 1.25rem;
+  }
+
+  .rich-document-editor h2 {
+    font-size: 1.65rem;
+    margin: 2rem 0 0.9rem;
+  }
+
+  .rich-document-editor h3 {
+    font-size: 1.25rem;
+    margin: 1.5rem 0 0.7rem;
+  }
+
+  .rich-document-editor p {
+    font-size: 1.03rem;
+    margin: 0 0 1rem;
+  }
+
+  .rich-document-editor a {
+    color: var(--coral-700);
+    font-weight: 800;
+    text-decoration: underline;
+    text-decoration-color: rgb(251 123 98 / 0.45);
+    text-underline-offset: 0.22em;
+  }
+
+  .rich-document-editor blockquote {
+    border-left: 4px solid var(--coral-400);
+    color: rgb(71 85 105);
+    font-style: italic;
+    margin: 1.3rem 0;
+    padding: 0.25rem 0 0.25rem 1rem;
+  }
+
+  .rich-document-editor ul,
+  .rich-document-editor ol {
+    margin: 1rem 0 1.2rem;
+    padding-left: 1.45rem;
+  }
+
+  .rich-document-editor ul {
+    list-style: disc;
+  }
+
+  .rich-document-editor ol {
+    list-style: decimal;
+  }
+
+  .rich-document-editor li {
+    margin: 0.35rem 0;
+  }
+
+  .rich-document-editor code {
+    border-radius: 0.45rem;
+    background: rgb(15 23 42 / 0.07);
+    color: var(--coral-700);
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    padding: 0.12rem 0.35rem;
+  }
+
+  .rich-document-editor pre {
+    border-radius: 1rem;
+    background: rgb(15 23 42);
+    color: rgb(248 250 252);
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    padding: 1rem;
+  }
+
+  .rich-document-editor pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+
+  .rich-document-editor img {
+    border-radius: 1.25rem;
+    display: block;
+    margin: 1.5rem 0;
+    max-width: 100%;
+  }
+
   .article-paper {
     transition:
       border-color 300ms ease,
