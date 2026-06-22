@@ -1,8 +1,10 @@
 "use client";
 
-import { Download, Plus, Search } from "lucide-react";
+import { Cloud, Download, HardDriveDownload, Plus, Search } from "lucide-react";
 
 import type {
+  StudioQingMusicLevel,
+  StudioQingMusicManifestStatus,
   StudioMusicSearchSource,
   StudioMusicSearchSourceTestResult,
   StudioMusicSource,
@@ -33,6 +35,7 @@ type MusicSourcesPanelProps = {
   isSourceImporting: boolean;
   isSourceUpdating: boolean;
   persistedSearchSourceSummary: PersistedSourceSummary;
+  qingMusicStatus?: StudioQingMusicManifestStatus;
   searchSources: StudioMusicSearchSource[];
   sourceTestKeyword: string;
   sourceTestResults: Record<string, StudioMusicSearchSourceTestResult>;
@@ -84,6 +87,23 @@ function getEnabledSourceText(enabledSources: StudioMusicSource[]) {
 
 function shouldCommitText(nextValue: string, currentValue: string) {
   return nextValue.trim() !== currentValue;
+}
+
+const qingMusicLevelLabels: Record<StudioQingMusicLevel, string> = {
+  atmos: "Atmos",
+  atmos_plus: "Atmos+",
+  clear: "臻品",
+  exhigh: "320k",
+  hires: "Hi-Res",
+  lossless: "无损",
+  master: "母带",
+  standard: "标准",
+};
+
+function getQingMusicQualityText(levels: StudioQingMusicLevel[]) {
+  if (levels.length === 0) return "未声明";
+
+  return levels.map((level) => qingMusicLevelLabels[level]).join(" / ");
 }
 
 function SourceTestResultCard({
@@ -158,6 +178,7 @@ export function MusicSourcesPanel({
   isSourceImporting,
   isSourceUpdating,
   persistedSearchSourceSummary,
+  qingMusicStatus,
   searchSources,
   sourceTestKeyword,
   sourceTestResults,
@@ -179,6 +200,8 @@ export function MusicSourcesPanel({
   onUpdateSearchSource,
 }: MusicSourcesPanelProps) {
   const testResults = Object.values(sourceTestResults);
+  const qingMusicLines = qingMusicStatus?.lines ?? [];
+  const enabledQingMusicLines = qingMusicLines.filter((line) => line.enabled);
 
   return (
     <>
@@ -279,6 +302,82 @@ export function MusicSourcesPanel({
             写入新版脚本
           </Button>
         </div>
+      </div>
+
+      <div className="mb-6 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/6">
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge className="border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-300/30 dark:bg-indigo-400/12 dark:text-indigo-100">
+            QingMusic 在线线路
+          </Badge>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-slate-950 dark:text-white">
+              {qingMusicStatus
+                ? `${enabledQingMusicLines.length}/${qingMusicLines.length} 条线路启用`
+                : "等待远端线路清单"}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-300">
+              下载缓存写入 R2；生产播放优先 R2，未缓存时按在线线路解析。
+            </p>
+          </div>
+          <Badge className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/30 dark:bg-emerald-400/12 dark:text-emerald-100">
+            <HardDriveDownload className="size-3.5" />
+            R2 下载缓存
+          </Badge>
+          <Badge className="gap-1 border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-300/30 dark:bg-sky-400/12 dark:text-sky-100">
+            <Cloud className="size-3.5" />
+            在线播放
+          </Badge>
+          {qingMusicStatus?.url ? (
+            <a
+              className="text-xs font-black text-indigo-600 underline-offset-4 hover:underline dark:text-indigo-200"
+              href={qingMusicStatus.url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              打开清单
+            </a>
+          ) : null}
+        </div>
+
+        {qingMusicStatus?.error ? (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-700 dark:border-amber-300/30 dark:bg-amber-400/12 dark:text-amber-100">
+            QingMusic 清单读取失败：{qingMusicStatus.error}
+          </div>
+        ) : qingMusicLines.length > 0 ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            {qingMusicLines.map((line) => (
+              <div
+                key={line.id}
+                className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 dark:border-white/10 dark:bg-white/6"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-black text-slate-950 dark:text-white">
+                    {line.name}
+                  </span>
+                  <Badge
+                    className={
+                      line.enabled
+                        ? "bg-emerald-100 text-emerald-950 dark:bg-emerald-400/15 dark:text-emerald-100"
+                        : "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300"
+                    }
+                  >
+                    {pluginProviderLabels[line.id]}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-[11px] font-bold leading-5 text-slate-500 dark:text-slate-300">
+                  {getQingMusicQualityText(line.levels)}
+                </p>
+                <p className="mt-2 truncate text-[10px] font-semibold text-slate-400">
+                  {line.searchApi} / {line.detailApi}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-xs font-bold text-slate-500 dark:border-white/10 dark:bg-white/6 dark:text-slate-300">
+            远端暂未返回可用线路。
+          </div>
+        )}
       </div>
 
       <div className="mb-6 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/6">

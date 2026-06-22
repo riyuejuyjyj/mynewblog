@@ -29,6 +29,7 @@ import {
   resolveMusicPluginWithFallback,
   searchMusicPlugins,
 } from "@/lib/music-plugins";
+import { fetchQingMusicManifest, QING_MUSIC_MANIFEST_URL } from "@/lib/qing-music";
 import {
   deleteR2Object,
   getPublicR2Url,
@@ -1605,6 +1606,24 @@ export const musicRouter = createTRPCRouter({
       .catch(() => []);
 
     return rows.map(toPublicSearchSource);
+  }),
+
+  qingMusicManifest: studioProcedure.query(async () => {
+    try {
+      return {
+        ...(await fetchQingMusicManifest()),
+        error: "",
+      };
+    } catch (error) {
+      return {
+        checkedAt: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "QingMusic manifest failed.",
+        lines: [],
+        playableLevelCount: 0,
+        recommendedProviderIds: [],
+        url: QING_MUSIC_MANIFEST_URL,
+      };
+    }
   }),
 
   importDefaultSearchSources: studioProcedure.mutation(async ({ ctx }) => {

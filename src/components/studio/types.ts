@@ -214,6 +214,34 @@ export type StudioMusicSearchSourceTestResult = {
   total: number;
 };
 
+export type StudioQingMusicLevel =
+  | "standard"
+  | "exhigh"
+  | "lossless"
+  | "hires"
+  | "atmos"
+  | "atmos_plus"
+  | "master"
+  | "clear";
+
+export type StudioQingMusicLine = {
+  detailApi: string;
+  enabled: boolean;
+  id: StudioSourceProvider;
+  levels: StudioQingMusicLevel[];
+  name: string;
+  searchApi: string;
+};
+
+export type StudioQingMusicManifestStatus = {
+  checkedAt: string;
+  error: string;
+  lines: StudioQingMusicLine[];
+  playableLevelCount: number;
+  recommendedProviderIds: StudioSourceProvider[];
+  url: string;
+};
+
 export type StudioSourceProvider = "kg" | "tx" | "wy" | "kw" | "mg";
 export type StudioSourceQuality = "128k" | "320k" | "flac";
 

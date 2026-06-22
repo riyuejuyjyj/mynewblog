@@ -22,6 +22,7 @@ import type {
   StudioMusicPlayHistory,
   StudioPrepareMusicDownloadInput,
   StudioPrepareMusicDownloadResult,
+  StudioQingMusicManifestStatus,
   StudioMusicSearchSource,
   StudioMusicSource,
   StudioMusicSourceVersionStatus,
@@ -214,6 +215,11 @@ export function StudioExperience() {
       staleTime: 1000 * 60 * 30,
     },
   );
+  const qingMusicManifest = trpc.music.qingMusicManifest.useQuery(undefined, {
+    enabled: Boolean(session.data?.user && inviteVerified && activeView === "music"),
+    retry: false,
+    staleTime: 1000 * 60 * 30,
+  });
   const comments = trpc.comments.studioList.useQuery(
     { limit: 40, status: "all" },
     { enabled: Boolean(session.data?.user && inviteVerified) },
@@ -391,6 +397,8 @@ export function StudioExperience() {
   const playlists = (musicPlaylists.data ?? []) as StudioMusicPlaylist[];
   const sourceVersionStatus =
     changqingVersion.data as StudioMusicSourceVersionStatus | undefined;
+  const qingMusicStatus =
+    qingMusicManifest.data as StudioQingMusicManifestStatus | undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -961,6 +969,7 @@ export function StudioExperience() {
         updateChangqingSource.isPending || changqingVersion.isFetching
       }
       sourceVersionStatus={sourceVersionStatus}
+      qingMusicStatus={qingMusicStatus}
       favorites={favorites}
       downloads={downloads}
       playlists={playlists}

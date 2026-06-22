@@ -58,6 +58,7 @@ import type {
   StudioMusicQueueItem,
   StudioPrepareMusicDownloadInput,
   StudioPrepareMusicDownloadResult,
+  StudioQingMusicManifestStatus,
   StudioMusicSearchSourceTestResult,
   StudioMusicSearchSource,
   StudioMusicPluginProvider,
@@ -88,6 +89,7 @@ type MusicBoardProps = {
   playHistory: StudioMusicPlayHistory[];
   tracks: StudioMusicTrack[];
   sourceVersionStatus?: StudioMusicSourceVersionStatus;
+  qingMusicStatus?: StudioQingMusicManifestStatus;
   searchSources: StudioMusicSearchSource[];
   sources: StudioMusicSource[];
   uploadStatus: string;
@@ -915,6 +917,7 @@ export function MusicBoard({
   tracks,
   playlists,
   sourceVersionStatus,
+  qingMusicStatus,
   searchSources,
   sources,
   uploadStatus,
@@ -3770,6 +3773,7 @@ export function MusicBoard({
               isSourceImporting={isSourceImporting}
               isSourceUpdating={isSourceUpdating}
               persistedSearchSourceSummary={persistedSearchSourceSummary}
+              qingMusicStatus={qingMusicStatus}
               searchSources={searchSources}
               sourceTestKeyword={sourceTestKeyword}
               sourceTestResults={sourceTestResults}
