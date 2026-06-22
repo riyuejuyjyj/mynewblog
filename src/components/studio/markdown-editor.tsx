@@ -47,6 +47,10 @@ import { getWordCount, slugify } from "@/components/studio/studio-utils";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TextInputDialog } from "@/components/ui/text-input-dialog";
+import {
+  isSupportedMediaReference,
+  resolveStorageObjectUrl,
+} from "@/lib/storage-object-url";
 import { cn } from "@/lib/utils";
 
 type MarkdownEditorProps = {
@@ -98,8 +102,11 @@ type PublishDraft = Pick<
   | "tagsText"
 >;
 
+type AutoSaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
+
 const ROOT_NODE_ID = "workspace-root";
 const CURRENT_DOC_ID = "current-post";
+const AUTO_SAVE_DELAY_MS = 2200;
 
 const initialNodes: LocalDocNode[] = [
   {
@@ -170,6 +177,60 @@ function getTitleFromDocName(name: string) {
   return name.replace(/\.md$/i, "");
 }
 
+function normalizeReadingMinutes(value: number) {
+  return Math.max(1, Math.min(120, Number(value) || 1));
+}
+
+function normalizeTagsText(value: string) {
+  return value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .join(",");
+}
+
+function createAutoSaveSnapshot(value: StudioPostForm) {
+  const title = value.title.trim();
+  const slug = slugify(value.slug || title);
+
+  return JSON.stringify({
+    category: value.category.trim(),
+    content: value.content.trim(),
+    coverImage: value.coverImage.trim(),
+    excerpt: value.excerpt.trim(),
+    featured: value.featured,
+    id: value.id ?? "",
+    mood: value.mood.trim(),
+    published: value.published,
+    readingMinutes: normalizeReadingMinutes(value.readingMinutes),
+    slug,
+    tagsText: normalizeTagsText(value.tagsText),
+    title,
+  });
+}
+
+function hasAutoSavePayload(value: StudioPostForm) {
+  return Boolean(
+    value.id ||
+      value.title.trim() ||
+      value.content.trim() ||
+      value.excerpt.trim() ||
+      value.coverImage.trim() ||
+      value.tagsText.trim(),
+  );
+}
+
+function formatAutoSaveTime(value: Date | null) {
+  if (!value) {
+    return "";
+  }
+
+  return value.toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function collectDescendantIds(nodes: LocalDocNode[], nodeId: string) {
   const ids = new Set<string>([nodeId]);
   let changed = true;
@@ -215,6 +276,11 @@ export function MarkdownEditor({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const coverPreviewUrlRef = useRef<string | null>(null);
+  const onSaveRef = useRef(onSave);
+  const latestFormRef = useRef(form);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveInFlightRef = useRef(false);
+  const lastAutoSavedSnapshotRef = useRef(createAutoSaveSnapshot(form));
   const [mode, setMode] = useState<EditorMode>("split");
   const [nodes, setNodes] = useState<LocalDocNode[]>(initialNodes);
   const [activeLocalDocId, setActiveLocalDocId] = useState(CURRENT_DOC_ID);
@@ -238,17 +304,65 @@ export function MarkdownEditor({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const [autoSaveStatus, setAutoSaveStatus] =
+    useState<AutoSaveStatus>("idle");
+  const [autoSaveError, setAutoSaveError] = useState("");
+  const [autoSavedAt, setAutoSavedAt] = useState<Date | null>(null);
+  const [autoSaveRevision, setAutoSaveRevision] = useState(0);
   const wordCount = useMemo(() => getWordCount(form.content), [form.content]);
+  const autoSaveSnapshot = useMemo(() => createAutoSaveSnapshot(form), [form]);
+  const autoSaveLabel = useMemo(() => {
+    if (activeLocalDocId !== CURRENT_DOC_ID) {
+      return "";
+    }
+
+    if (autoSaveStatus === "pending") {
+      return "等待自动保存";
+    }
+
+    if (autoSaveStatus === "saving") {
+      return "自动保存中";
+    }
+
+    if (autoSaveStatus === "saved") {
+      const timeLabel = formatAutoSaveTime(autoSavedAt);
+
+      return timeLabel ? `已自动保存 ${timeLabel}` : "已自动保存";
+    }
+
+    if (autoSaveStatus === "error") {
+      return autoSaveError ? `自动保存失败：${autoSaveError}` : "自动保存失败";
+    }
+
+    return hasAutoSavePayload(form) ? "自动保存已开启" : "";
+  }, [activeLocalDocId, autoSaveError, autoSaveStatus, autoSavedAt, form]);
+  const coverReference = publishDraft.coverImage.trim();
+  const coverReferenceSupported = isSupportedMediaReference(coverReference);
+  const coverPreviewSrc =
+    coverPreviewUrl ??
+    (coverReferenceSupported ? resolveStorageObjectUrl(coverReference) : "");
+  const coverReferenceLabel = coverReference
+    ? coverReferenceSupported
+      ? coverReference.startsWith("/api/storage/object") ||
+        /^(attachments|covers|gallery|music)\//.test(coverReference)
+        ? "后台代理/R2 对象引用"
+        : "公网或临时图片地址"
+      : "封面引用不可用"
+    : "还没有封面";
   const publishValidation = useMemo(() => {
     const normalizedSlug = slugify(publishDraft.slug || form.title);
     const readingMinutes = Number(publishDraft.readingMinutes);
+    const coverImage = publishDraft.coverImage.trim();
     const issues = [
       form.title.trim() ? "" : "需要文章标题",
       normalizedSlug ? "" : "需要可发布的 slug",
       form.content.trim() ? "" : "正文还没有内容",
       publishDraft.excerpt.trim() ? "" : "需要摘要",
       publishDraft.category.trim() ? "" : "需要分类",
-      publishDraft.coverImage.trim() ? "" : "需要封面图片",
+      coverImage ? "" : "需要封面图片",
+      coverImage && !isSupportedMediaReference(coverImage)
+        ? "封面图片地址不可用"
+        : "",
       Number.isFinite(readingMinutes) && readingMinutes >= 1 && readingMinutes <= 120
         ? ""
         : "阅读时间需在 1-120 分钟之间",
@@ -266,6 +380,156 @@ export function MarkdownEditor({
     [nodes, pendingTreeDeleteId],
   );
   const selectedPostId = form.id ?? "";
+
+  useEffect(() => {
+    latestFormRef.current = form;
+  }, [form]);
+
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
+
+  useEffect(() => {
+    lastAutoSavedSnapshotRef.current = createAutoSaveSnapshot(
+      latestFormRef.current,
+    );
+    const resetTimer = setTimeout(() => {
+      setAutoSaveStatus("idle");
+      setAutoSaveError("");
+      setAutoSavedAt(null);
+    }, 0);
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+
+    return () => {
+      clearTimeout(resetTimer);
+    };
+  }, [activeLocalDocId, selectedPostId]);
+
+  useEffect(() => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+
+    const canAutoSave =
+      activeLocalDocId === CURRENT_DOC_ID &&
+      !publishOpen &&
+      !uploadingImage &&
+      !uploadingCover &&
+      !isDeleting;
+
+    if (!canAutoSave || !hasAutoSavePayload(form)) {
+      return;
+    }
+
+    if (autoSaveSnapshot === lastAutoSavedSnapshotRef.current) {
+      return;
+    }
+
+    setAutoSaveStatus("pending");
+    setAutoSaveError("");
+
+    if (isSaving || autoSaveInFlightRef.current) {
+      return;
+    }
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      const snapshotAtStart = createAutoSaveSnapshot(form);
+
+      if (
+        snapshotAtStart === lastAutoSavedSnapshotRef.current ||
+        !hasAutoSavePayload(form)
+      ) {
+        return;
+      }
+
+      autoSaveInFlightRef.current = true;
+      setAutoSaveStatus("saving");
+      let saveSucceeded = false;
+
+      void onSaveRef
+        .current()
+        .then(() => {
+          saveSucceeded = true;
+          lastAutoSavedSnapshotRef.current = snapshotAtStart;
+          setAutoSavedAt(new Date());
+          setAutoSaveStatus("saved");
+          setAutoSaveError("");
+        })
+        .catch((error: unknown) => {
+          setAutoSaveStatus("error");
+          setAutoSaveError(
+            error instanceof Error ? error.message : "请稍后手动保存",
+          );
+        })
+        .finally(() => {
+          autoSaveInFlightRef.current = false;
+
+          const latestSnapshot = createAutoSaveSnapshot(latestFormRef.current);
+
+          if (
+            saveSucceeded &&
+            latestSnapshot !== lastAutoSavedSnapshotRef.current &&
+            hasAutoSavePayload(latestFormRef.current)
+          ) {
+            setAutoSaveRevision((current) => current + 1);
+          }
+        });
+    }, AUTO_SAVE_DELAY_MS);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [
+    activeLocalDocId,
+    autoSaveRevision,
+    autoSaveSnapshot,
+    form,
+    isDeleting,
+    isSaving,
+    publishOpen,
+    uploadingCover,
+    uploadingImage,
+  ]);
+
+  useEffect(() => {
+    const shouldWarnBeforeUnload =
+      activeLocalDocId === CURRENT_DOC_ID &&
+      hasAutoSavePayload(form) &&
+      autoSaveSnapshot !== lastAutoSavedSnapshotRef.current;
+
+    if (!shouldWarnBeforeUnload) {
+      return;
+    }
+
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [activeLocalDocId, autoSaveSnapshot, form]);
+
+  useEffect(
+    () => () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   useEffect(
     () => () => {
@@ -536,8 +800,11 @@ export function MarkdownEditor({
         replaceCoverPreviewUrl(null);
         setPublishDraft((current) => ({ ...current, coverImage: url }));
         onChange({ coverImage: url });
+      } else {
+        replaceCoverPreviewUrl(null);
       }
     } catch {
+      replaceCoverPreviewUrl(null);
       // The parent owns the visible upload status; keep the editor responsive.
     } finally {
       setUploadingCover(false);
@@ -564,6 +831,13 @@ export function MarkdownEditor({
   async function saveDraft() {
     syncActiveLocalDoc();
     await onSave({ published: false });
+    lastAutoSavedSnapshotRef.current = createAutoSaveSnapshot({
+      ...form,
+      published: false,
+    });
+    setAutoSavedAt(new Date());
+    setAutoSaveStatus("saved");
+    setAutoSaveError("");
   }
 
   async function publishPost() {
@@ -571,12 +845,21 @@ export function MarkdownEditor({
       return;
     }
 
-    syncActiveLocalDoc();
-    await onSave({
+    const publishPatch = {
       ...publishDraft,
       published: true,
       slug: publishValidation.normalizedSlug,
+    };
+
+    syncActiveLocalDoc();
+    await onSave(publishPatch);
+    lastAutoSavedSnapshotRef.current = createAutoSaveSnapshot({
+      ...form,
+      ...publishPatch,
     });
+    setAutoSavedAt(new Date());
+    setAutoSaveStatus("saved");
+    setAutoSaveError("");
     closePublishDialog();
   }
 
@@ -786,6 +1069,23 @@ export function MarkdownEditor({
             {uploadStatus ? (
               <span className="rounded-full bg-white/45 px-3 py-2 text-[11px] font-bold text-slate-500 dark:bg-white/10 dark:text-slate-300 lg:ml-auto">
                 {uploadStatus}
+              </span>
+            ) : null}
+            {autoSaveLabel ? (
+              <span
+                aria-live="polite"
+                className={cn(
+                  "inline-flex min-h-9 items-center gap-2 rounded-full px-3 py-2 text-[11px] font-bold",
+                  !uploadStatus && "lg:ml-auto",
+                  autoSaveStatus === "error"
+                    ? "bg-coral-100 text-coral-950 dark:bg-coral-400/15 dark:text-coral-100"
+                    : autoSaveStatus === "pending" || autoSaveStatus === "saving"
+                      ? "bg-sky-100 text-sky-950 dark:bg-sky-400/15 dark:text-sky-100"
+                      : "bg-white/45 text-slate-500 dark:bg-white/10 dark:text-slate-300",
+                )}
+              >
+                <Save className="size-3.5" />
+                {autoSaveLabel}
               </span>
             ) : null}
             <div className="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto">
@@ -1095,9 +1395,9 @@ export function MarkdownEditor({
                       onChange={handleCoverUpload}
                     />
                     <div className="mt-3 aspect-video overflow-hidden rounded-3xl border border-white/45 bg-slate-950/5 dark:border-white/10 dark:bg-white/10">
-                      {coverPreviewUrl || publishDraft.coverImage ? (
+                      {coverPreviewSrc ? (
                         <img
-                          src={coverPreviewUrl ?? publishDraft.coverImage}
+                          src={coverPreviewSrc}
                           alt=""
                           className="size-full object-cover"
                         />
@@ -1116,10 +1416,20 @@ export function MarkdownEditor({
                         }))
                       }
                       required
-                      type="url"
+                      type="text"
                       className="studio-input mt-3"
                       placeholder={uploadingCover ? "封面上传中，完成后会自动写入 URL" : undefined}
                     />
+                    <p
+                      className={cn(
+                        "mt-2 rounded-2xl px-4 py-3 text-xs font-bold",
+                        coverReference && !coverReferenceSupported
+                          ? "bg-coral-100 text-coral-950 dark:bg-coral-400/15 dark:text-coral-100"
+                          : "bg-white/45 text-slate-500 dark:bg-white/10 dark:text-slate-300",
+                      )}
+                    >
+                      {coverReferenceLabel}
+                    </p>
                     {uploadingCover ? (
                       <p className="mt-2 rounded-2xl bg-white/45 px-4 py-3 text-xs font-bold text-slate-500 dark:bg-white/10 dark:text-slate-300">
                         已先显示本地预览，正在上传到 R2...

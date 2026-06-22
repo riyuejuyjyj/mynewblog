@@ -70,7 +70,8 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 ### P2: Publishing Workflow
 - [x] Strengthen publish states in Studio with clear readiness feedback.
 - [x] Tighten slug, title, cover, excerpt, reading time, featured, and published validation.
-- [ ] Improve Markdown editor ergonomics on mobile: metadata editing, preview switching, upload flow, and save status.
+- [x] Add Markdown editor autosave with visible save status and unload protection.
+- [ ] Improve Markdown editor ergonomics on mobile: metadata editing, preview switching, and upload flow.
 - [ ] Continue splitting large editor logic only where it reduces real complexity.
 
 ### P3: Comments And Replies
@@ -114,3 +115,27 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 
 ## Status
 Currently continuing the 2026-06-10 optimization plan: Studio comments now expose status filters, parent/reply context, author replies from Studio, and lightweight spam marking for public submissions. Next is authenticated visual QA and then the publishing/R2 reliability path.
+
+## Next Pass: 2026-06-11
+
+### P0: Authenticated Studio QA
+- [ ] Open `/studio` with a real authenticated session and verify `dashboard`, `posts`, `editor`, `media`, and `comments` at mobile, tablet, and desktop widths.
+- [ ] Confirm the new compact Studio shell still keeps top-bar actions, stats, and tab switching readable once the user is signed in.
+- [ ] Check that comment moderation actions, reply flow, and post switching still feel dense and usable after the recent layout tightening.
+
+### P1: R2 Media And Publishing Smoke Test
+- [ ] Verify the new media/upload guardrails end to end: signed upload, direct-upload fallback, proxy preview URL, public URL, and delete cleanup.
+- [ ] Test the cover-image path from Media board or Publish dialog through post save/publish, then confirm the saved post card and detail page resolve the image consistently.
+- [ ] Validate the broken/missing asset states in `media-board.tsx` using at least one proxy-only asset and one intentionally missing object record.
+
+### P2: Verification And Ship
+- [x] `bunx tsc --noEmit`
+- [x] `bun run lint`
+- [x] `bun run build`
+- [x] Run a live `/studio` route smoke test after the build gate passes.
+- [x] Commit the current Studio media/editor reliability pass and push `origin/main`.
+
+### P3: Complexity Reduction After Smoke Test
+- [ ] Split `markdown-editor.tsx` by extracting publish-dialog state and media-upload helpers before adding more editor features.
+- [ ] Trim `studio-experience.tsx` into smaller view-specific hooks/helpers so upload, auth/invite, and board orchestration stop growing in one file.
+- [ ] Only resume broader production-readiness and Cloudflare follow-through after the authenticated Studio workflow is comfortable for daily use.

@@ -90,6 +90,10 @@ export function MediaBoard({
     [assets],
   );
   const missingCount = imageAssets.filter((asset) => asset.exists === false).length;
+  const proxyOnlyCount = imageAssets.filter(
+    (asset) => !asset.publicUrl && asset.exists !== false,
+  ).length;
+  const brokenCount = imageAssets.filter((asset) => brokenAssets.has(asset.id)).length;
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
@@ -134,6 +138,15 @@ export function MediaBoard({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge>Cloudflare R2</Badge>
+            <Badge
+              className={
+                storage.configured
+                  ? "bg-emerald-100 text-emerald-950 dark:bg-emerald-400/15 dark:text-emerald-100"
+                  : "bg-coral-100 text-coral-950 dark:bg-coral-400/15 dark:text-coral-100"
+              }
+            >
+              {storage.configured ? "R2 已配置" : "R2 未配置"}
+            </Badge>
             <Badge className="bg-white/25 text-slate-600 dark:bg-white/10 dark:text-slate-300">
               {storage.bucket ?? "images"}
             </Badge>
@@ -152,6 +165,17 @@ export function MediaBoard({
                 {missingCount} 条对象缺失
               </Badge>
             ) : null}
+            {brokenCount > 0 ? (
+              <Badge className="gap-1 bg-coral-100 text-coral-950 dark:bg-coral-400/15 dark:text-coral-100">
+                <AlertTriangle className="size-3.5" />
+                {brokenCount} 条预览失败
+              </Badge>
+            ) : null}
+            {proxyOnlyCount > 0 ? (
+              <Badge className="bg-white/25 text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                {proxyOnlyCount} 条代理预览
+              </Badge>
+            ) : null}
           </div>
           <h2 className="mt-4 text-2xl font-black tracking-[0] sm:text-3xl">
             媒体库
@@ -159,6 +183,15 @@ export function MediaBoard({
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
             主区域直接展示已上传图片。新上传会在确认 R2 对象存在后再写入数据库，旧的幽灵记录会标记为对象缺失并可清理。
           </p>
+          {!storage.configured ? (
+            <p className="mt-3 rounded-2xl bg-coral-100 px-4 py-3 text-sm font-bold text-coral-950 dark:bg-coral-400/15 dark:text-coral-100">
+              R2 未完整配置时不会保存新素材，避免生成无法访问的封面或正文图片。
+            </p>
+          ) : !storage.publicBaseUrl ? (
+            <p className="mt-3 rounded-2xl bg-white/35 px-4 py-3 text-sm font-bold text-slate-600 dark:bg-white/10 dark:text-slate-300">
+              当前没有公网 Base URL，图片会通过后台代理地址预览和写入文章。
+            </p>
+          ) : null}
         </div>
 
         <Button type="button" className="w-full sm:w-auto" onClick={() => setUploadOpen(true)}>
@@ -200,15 +233,16 @@ export function MediaBoard({
         ) : null}
 
         {imageAssets.map((asset) => {
-          const previewUrl = assetImageUrl(asset);
-          const actionUrl = previewUrl ?? asset.publicUrl;
           const isMissing = asset.exists === false;
+          const isBroken = brokenAssets.has(asset.id);
+          const previewUrl = assetImageUrl(asset);
+          const actionUrl = isBroken ? asset.publicUrl : previewUrl ?? asset.publicUrl;
           const isDeleting = deletingAssetId === asset.id;
           const isCurrentCover =
             Boolean(actionUrl && form.coverImage === actionUrl) ||
             form.coverImage === asset.objectKey ||
             form.coverImage === asset.altText;
-          const canPreview = Boolean(previewUrl && !brokenAssets.has(asset.id));
+          const canPreview = Boolean(previewUrl && !isBroken);
 
           return (
           <article
@@ -245,6 +279,12 @@ export function MediaBoard({
                     对象缺失
                   </div>
                 ) : null}
+                {isBroken && !isMissing ? (
+                  <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-coral-100 px-3 py-1 text-[11px] font-black text-coral-950 shadow-lg">
+                    <AlertTriangle className="size-3.5" />
+                    预览失败
+                  </div>
+                ) : null}
               </div>
 
               <div className="space-y-3 p-3 sm:p-4">
@@ -256,6 +296,17 @@ export function MediaBoard({
                     <span>{asset.folder}</span>
                     <span>{formatBytes(asset.sizeBytes)}</span>
                   </div>
+                  <p className="mt-2 rounded-xl bg-white/35 px-3 py-2 text-[11px] font-bold text-slate-500 dark:bg-white/10 dark:text-slate-300">
+                    {isMissing
+                      ? "R2 对象缺失，仅可清理记录"
+                      : isBroken && asset.publicUrl
+                        ? "代理预览失败，可继续使用公网 URL"
+                        : isBroken
+                        ? "图片无法预览，请检查对象或代理"
+                        : asset.publicUrl
+                          ? "公网 URL 可用"
+                          : "使用后台代理预览"}
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">

@@ -149,6 +149,10 @@ async function uploadViaServer(file: File, folder: UploadFolder) {
   return data.previewUrl ?? data.publicUrl ?? null;
 }
 
+function summarizeUploadError(error: unknown) {
+  return error instanceof Error ? error.message : "未知错误";
+}
+
 export function StudioExperience() {
   const utils = trpc.useUtils();
   const session = authClient.useSession();
@@ -575,17 +579,24 @@ export function StudioExperience() {
 
     setUploadStatus("正在生成 R2 上传签名...");
 
-    const upload = await createUploadUrl.mutateAsync({
-      folder,
-      fileName: file.name,
-      contentType: file.type || "application/octet-stream",
-      sizeBytes: file.size,
-      altText: file.name,
-    });
+    let upload: Awaited<ReturnType<typeof createUploadUrl.mutateAsync>>;
+
+    try {
+      upload = await createUploadUrl.mutateAsync({
+        folder,
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+        altText: file.name,
+      });
+    } catch (error) {
+      setUploadStatus(`生成 R2 上传签名失败：${summarizeUploadError(error)}`);
+      return null;
+    }
 
     if (!upload.configured || !upload.uploadUrl) {
-      setUploadStatus("R2 尚未完整配置，暂时只生成对象路径。");
-      return upload.previewUrl ?? upload.publicUrl;
+      setUploadStatus("R2 尚未完整配置，不能保存新的媒体文件。");
+      return null;
     }
 
     setUploadStatus("正在上传到 R2...");
@@ -619,13 +630,28 @@ export function StudioExperience() {
         sizeBytes: file.size,
         altText: file.name,
       });
-    } catch {
-      setUploadStatus("浏览器直传超时，正在改用服务端上传...");
-      uploadedUrl = await uploadViaServer(file, folder);
+    } catch (directError) {
+      setUploadStatus(
+        `浏览器直传失败，正在改用服务端上传：${summarizeUploadError(directError)}`,
+      );
+
+      try {
+        uploadedUrl = await uploadViaServer(file, folder);
+      } catch (serverError) {
+        setUploadStatus(`服务端上传也失败：${summarizeUploadError(serverError)}`);
+        return null;
+      }
+    }
+
+    if (!uploadedUrl) {
+      setUploadStatus("上传失败，没有得到可用 URL。");
+      return null;
     }
 
     setUploadStatus(
-      uploadedUrl ? "上传完成。" : "上传完成，但还没有配置公网 URL。",
+      upload.publicUrl
+        ? "上传完成，公网 URL 已写入。"
+        : "上传完成，当前使用后台代理预览 URL。",
     );
     setOperations((current) => [`上传素材：${file.name}`, ...current].slice(0, 6));
     await utils.storage.assets.invalidate();
