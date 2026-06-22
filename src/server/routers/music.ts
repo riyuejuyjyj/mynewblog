@@ -29,7 +29,12 @@ import {
   resolveMusicPluginWithFallback,
   searchMusicPlugins,
 } from "@/lib/music-plugins";
-import { fetchQingMusicManifest, QING_MUSIC_MANIFEST_URL } from "@/lib/qing-music";
+import {
+  fetchQingMusicManifest,
+  getEnabledQingMusicProviderIds,
+  QING_MUSIC_MANIFEST_URL,
+  type QingMusicProviderId,
+} from "@/lib/qing-music";
 import {
   deleteR2Object,
   getPublicR2Url,
@@ -2217,12 +2222,16 @@ export const musicRouter = createTRPCRouter({
         await getConfiguredSearchDefinitions(ctx),
         input.providers,
       );
+      const requestedProviders =
+        input.providers && input.providers.length > 0
+          ? input.providers
+          : searchDefinitions.map((definition) => definition.provider);
 
       return searchMusicPlugins({
         definitions: searchDefinitions,
         keyword: input.keyword,
         limit: input.limit,
-        providers: searchDefinitions.map((definition) => definition.provider),
+        providers: requestedProviders,
       });
     }),
 
@@ -2249,9 +2258,16 @@ export const musicRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       try {
         const searchDefinitions = await getConfiguredSearchDefinitions(ctx);
-        const providerEnabled = searchDefinitions.some(
-          (definition) => definition.provider === input.provider,
+        const sourceProvider = sourceProviderSchema.safeParse(input.provider);
+        const qingMusicEnabledProviders = await getEnabledQingMusicProviderIds().catch(
+          () => new Set<QingMusicProviderId>(["kw"]),
         );
+        const providerEnabled =
+          searchDefinitions.some(
+            (definition) => definition.provider === input.provider,
+          ) ||
+          (sourceProvider.success &&
+            qingMusicEnabledProviders.has(sourceProvider.data));
 
         if (!providerEnabled) {
           throw new Error(`${input.provider} 搜索源已停用。`);
@@ -2288,7 +2304,6 @@ export const musicRouter = createTRPCRouter({
             };
           }
 
-          const sourceProvider = sourceProviderSchema.safeParse(input.provider);
           const builtInResult = sourceProvider.success
             ? await resolveBuiltInProviderAudio({
                 provider: sourceProvider.data,

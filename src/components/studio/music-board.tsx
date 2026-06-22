@@ -1017,11 +1017,18 @@ export function MusicBoard({
   const libraryFallbackItemRef = useRef<StudioMusicLibraryItem | null>(null);
   const mediaErrorCandidateKeysRef = useRef<Set<string>>(new Set());
   const enabledSources = sources.filter((source) => source.enabled);
+  const qingMusicSearchProviders = useMemo<StudioMusicPluginProvider[]>(
+    () =>
+      qingMusicStatus?.error
+        ? []
+        : (qingMusicStatus?.recommendedProviderIds ?? []),
+    [qingMusicStatus?.error, qingMusicStatus?.recommendedProviderIds],
+  );
   const enabledSearchProviders = useMemo(
     () =>
       Array.from(
-        new Set(
-          searchSources
+        new Set([
+          ...searchSources
             .filter((source) => source.enabled)
             .sort((left, right) => {
               const scoreDiff =
@@ -1035,9 +1042,10 @@ export function MusicBoard({
               return left.sortOrder - right.sortOrder;
             })
             .map((source) => source.provider),
-        ),
+          ...qingMusicSearchProviders,
+        ]),
       ),
-    [runtimeSourceHealth, searchSources],
+    [qingMusicSearchProviders, runtimeSourceHealth, searchSources],
   );
   const enabledSearchProviderSet = useMemo(
     () => new Set(enabledSearchProviders),

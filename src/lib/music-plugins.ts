@@ -1,3 +1,8 @@
+import {
+  searchQingMusic,
+  type QingMusicProviderId,
+} from "@/lib/qing-music";
+
 const DISABLED_REASON =
   "Server-side music plugin execution is disabled in the Cloudflare production bundle.";
 
@@ -91,6 +96,28 @@ export const defaultMusicPluginDefinitions: MusicPluginDefinition[] = [
   },
 ];
 
+const qingMusicPluginProviders: readonly QingMusicProviderId[] = [
+  "kw",
+  "kg",
+  "wy",
+  "tx",
+  "mg",
+];
+
+function isQingMusicProvider(
+  provider: MusicPluginProvider,
+): provider is QingMusicProviderId {
+  return (qingMusicPluginProviders as readonly MusicPluginProvider[]).includes(
+    provider,
+  );
+}
+
+function getQingMusicProviders(providers?: MusicPluginProvider[]) {
+  if (!providers || providers.length === 0) return [];
+
+  return providers.filter(isQingMusicProvider);
+}
+
 export function getMusicPluginDefinitions() {
   return defaultMusicPluginDefinitions;
 }
@@ -101,9 +128,28 @@ export async function searchMusicPlugins(input: {
   limit?: number;
   providers?: MusicPluginProvider[];
 }): Promise<MusicSearchCandidate[]> {
-  void input;
+  const providers = getQingMusicProviders(input.providers);
 
-  return [];
+  if (input.providers && input.providers.length > 0 && providers.length === 0) {
+    return [];
+  }
+
+  const candidates = await searchQingMusic({
+    keyword: input.keyword,
+    limit: input.limit,
+    providers: providers.length > 0 ? providers : undefined,
+  });
+
+  return candidates.map((candidate) => ({
+    album: candidate.album,
+    artist: candidate.artist,
+    artwork: candidate.artwork,
+    duration: candidate.duration,
+    id: candidate.id,
+    raw: candidate.raw,
+    source: candidate.source,
+    title: candidate.title,
+  }));
 }
 
 export async function resolveMusicPluginLyric(

@@ -327,6 +327,9 @@ export function MusicSourcesPanel({
             <Cloud className="size-3.5" />
             在线播放
           </Badge>
+          <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/30 dark:bg-emerald-400/12 dark:text-emerald-100">
+            已接入小窝源搜索
+          </Badge>
           {qingMusicStatus?.url ? (
             <a
               className="text-xs font-black text-indigo-600 underline-offset-4 hover:underline dark:text-indigo-200"
