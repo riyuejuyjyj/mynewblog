@@ -3,6 +3,10 @@
 /* eslint-disable @next/next/no-img-element */
 
 import {
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
   Bold,
   Code2,
   Eye,
@@ -15,6 +19,7 @@ import {
   Italic,
   Link2,
   List,
+  ListIndentIncrease,
   ListOrdered,
   MoreHorizontal,
   PanelLeftClose,
@@ -68,6 +73,11 @@ type MarkdownEditorProps = {
 
 type EditorMode = "write" | "split" | "source" | "preview";
 type RichBlockStyle = "paragraph" | "h1" | "h2" | "h3" | "quote";
+type ParagraphAlign = "left" | "center" | "right" | "justify";
+type ParagraphFormat = {
+  align: ParagraphAlign;
+  firstLineIndent: boolean;
+};
 type LocalNodeType = "folder" | "doc";
 
 type LocalDocNode = {
@@ -171,6 +181,13 @@ const inlineTools = [
   },
 ] as const;
 
+const paragraphAlignTools = [
+  { align: "left", icon: AlignLeft, label: "左对齐" },
+  { align: "center", icon: AlignCenter, label: "居中" },
+  { align: "right", icon: AlignRight, label: "右对齐" },
+  { align: "justify", icon: AlignJustify, label: "两端对齐" },
+] as const;
+
 function createNodeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -253,6 +270,81 @@ function normalizeEditorUrl(value: string) {
   return `https://${trimmed}`;
 }
 
+function createDefaultParagraphFormat(): ParagraphFormat {
+  return {
+    align: "left",
+    firstLineIndent: false,
+  };
+}
+
+function isParagraphAlign(value: string): value is ParagraphAlign {
+  return ["left", "center", "right", "justify"].includes(value);
+}
+
+function readParagraphFormatLine(value: string): ParagraphFormat | null {
+  if (!/^<!--\s*studio:paragraph\b/.test(value)) {
+    return null;
+  }
+
+  const align = value.match(/\balign=(left|center|right|justify)\b/)?.[1];
+  const indent = value.match(/\bindent=(first|none)\b/)?.[1];
+
+  return {
+    align: align && isParagraphAlign(align) ? align : "left",
+    firstLineIndent: indent === "first",
+  };
+}
+
+function serializeParagraphFormat(format: ParagraphFormat, force = false) {
+  const parts = ["studio:paragraph"];
+
+  if (force || format.align !== "left") {
+    parts.push(`align=${format.align}`);
+  }
+
+  if (force || format.firstLineIndent) {
+    parts.push(`indent=${format.firstLineIndent ? "first" : "none"}`);
+  }
+
+  return parts.length > 1 ? `<!-- ${parts.join(" ")} -->` : "";
+}
+
+function getEditableBlockAttributes(format: ParagraphFormat) {
+  const attrs: string[] = [];
+
+  if (format.align !== "left") {
+    attrs.push(`data-align="${format.align}"`);
+  }
+
+  if (format.firstLineIndent) {
+    attrs.push('data-first-line-indent="true"');
+  }
+
+  return attrs.length > 0 ? ` ${attrs.join(" ")}` : "";
+}
+
+function getElementParagraphFormat(element: HTMLElement): ParagraphFormat {
+  const rawAlign =
+    element.dataset.align ||
+    element.style.textAlign ||
+    element.getAttribute("align") ||
+    "left";
+  const textIndent = element.style.textIndent.trim();
+
+  return {
+    align: isParagraphAlign(rawAlign) ? rawAlign : "left",
+    firstLineIndent:
+      element.dataset.firstLineIndent === "true" ||
+      (Boolean(textIndent) && textIndent !== "0px" && textIndent !== "0"),
+  };
+}
+
+function withParagraphFormat(markdown: string, element: HTMLElement) {
+  const meta = serializeParagraphFormat(getElementParagraphFormat(element));
+
+  return meta ? `${meta}\n${markdown}` : markdown;
+}
+
 function renderInlineMarkdownToHtml(text: string) {
   const chunks: string[] = [];
   const pattern =
@@ -324,10 +416,25 @@ function markdownToEditableHtml(value: string) {
   const lines = value.split("\n");
   const blocks: string[] = [];
   let index = 0;
+  let pendingParagraphFormat = createDefaultParagraphFormat();
+
+  function takeParagraphAttributes() {
+    const attrs = getEditableBlockAttributes(pendingParagraphFormat);
+    pendingParagraphFormat = createDefaultParagraphFormat();
+
+    return attrs;
+  }
 
   while (index < lines.length) {
     const line = lines[index];
     const trimmed = line.trim();
+    const paragraphFormat = readParagraphFormatLine(trimmed);
+
+    if (paragraphFormat) {
+      pendingParagraphFormat = paragraphFormat;
+      index += 1;
+      continue;
+    }
 
     if (!trimmed) {
       index += 1;
@@ -344,24 +451,31 @@ function markdownToEditableHtml(value: string) {
       }
 
       blocks.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+      pendingParagraphFormat = createDefaultParagraphFormat();
       index += 1;
       continue;
     }
 
     if (trimmed.startsWith("### ")) {
-      blocks.push(`<h3>${renderInlineMarkdownToHtml(trimmed.slice(4))}</h3>`);
+      blocks.push(
+        `<h3${takeParagraphAttributes()}>${renderInlineMarkdownToHtml(trimmed.slice(4))}</h3>`,
+      );
       index += 1;
       continue;
     }
 
     if (trimmed.startsWith("## ")) {
-      blocks.push(`<h2>${renderInlineMarkdownToHtml(trimmed.slice(3))}</h2>`);
+      blocks.push(
+        `<h2${takeParagraphAttributes()}>${renderInlineMarkdownToHtml(trimmed.slice(3))}</h2>`,
+      );
       index += 1;
       continue;
     }
 
     if (trimmed.startsWith("# ")) {
-      blocks.push(`<h1>${renderInlineMarkdownToHtml(trimmed.slice(2))}</h1>`);
+      blocks.push(
+        `<h1${takeParagraphAttributes()}>${renderInlineMarkdownToHtml(trimmed.slice(2))}</h1>`,
+      );
       index += 1;
       continue;
     }
@@ -375,7 +489,7 @@ function markdownToEditableHtml(value: string) {
       }
 
       blocks.push(
-        `<blockquote><p>${renderInlineMarkdownToHtml(quoteLines.join(" "))}</p></blockquote>`,
+        `<blockquote${takeParagraphAttributes()}><p>${renderInlineMarkdownToHtml(quoteLines.join(" "))}</p></blockquote>`,
       );
       continue;
     }
@@ -383,7 +497,7 @@ function markdownToEditableHtml(value: string) {
     if (/^[-*]\s+/.test(trimmed)) {
       const list = readMarkdownList(lines, index, false);
       blocks.push(
-        `<ul>${list.items
+        `<ul${takeParagraphAttributes()}>${list.items
           .map((item) => `<li>${renderInlineMarkdownToHtml(item)}</li>`)
           .join("")}</ul>`,
       );
@@ -394,7 +508,7 @@ function markdownToEditableHtml(value: string) {
     if (/^\d+\.\s+/.test(trimmed)) {
       const list = readMarkdownList(lines, index, true);
       blocks.push(
-        `<ol>${list.items
+        `<ol${takeParagraphAttributes()}>${list.items
           .map((item) => `<li>${renderInlineMarkdownToHtml(item)}</li>`)
           .join("")}</ol>`,
       );
@@ -413,6 +527,7 @@ function markdownToEditableHtml(value: string) {
         next.startsWith("#") ||
         next.startsWith("> ") ||
         next.startsWith("```") ||
+        readParagraphFormatLine(next) ||
         /^[-*]\s+/.test(next) ||
         /^\d+\.\s+/.test(next)
       ) {
@@ -423,7 +538,9 @@ function markdownToEditableHtml(value: string) {
       index += 1;
     }
 
-    blocks.push(`<p>${renderInlineMarkdownToHtml(paragraphLines.join(" "))}</p>`);
+    blocks.push(
+      `<p${takeParagraphAttributes()}>${renderInlineMarkdownToHtml(paragraphLines.join(" "))}</p>`,
+    );
   }
 
   return blocks.length > 0 ? blocks.join("") : "";
@@ -477,9 +594,9 @@ function blockNodeToMarkdown(node: ChildNode, listIndex?: number): string {
   const inline = () =>
     Array.from(element.childNodes).map(getInlineMarkdown).join("").trim();
 
-  if (tagName === "h1") return `# ${inline()}`;
-  if (tagName === "h2") return `## ${inline()}`;
-  if (tagName === "h3") return `### ${inline()}`;
+  if (tagName === "h1") return withParagraphFormat(`# ${inline()}`, element);
+  if (tagName === "h2") return withParagraphFormat(`## ${inline()}`, element);
+  if (tagName === "h3") return withParagraphFormat(`### ${inline()}`, element);
   if (tagName === "blockquote") {
     const content = Array.from(element.childNodes)
       .map((child) => blockNodeToMarkdown(child))
@@ -489,16 +606,18 @@ function blockNodeToMarkdown(node: ChildNode, listIndex?: number): string {
       .map((line) => `> ${line}`)
       .join("\n");
 
-    return content || `> ${inline()}`;
+    return withParagraphFormat(content || `> ${inline()}`, element);
   }
   if (tagName === "ul" || tagName === "ol") {
-    return Array.from(element.children)
+    const listMarkdown = Array.from(element.children)
       .filter((child) => child.tagName.toLowerCase() === "li")
       .map((child, index) =>
         blockNodeToMarkdown(child, tagName === "ol" ? index + 1 : undefined),
       )
       .filter(Boolean)
       .join("\n");
+
+    return withParagraphFormat(listMarkdown, element);
   }
   if (tagName === "li") {
     const marker = listIndex ? `${listIndex}.` : "-";
@@ -508,7 +627,7 @@ function blockNodeToMarkdown(node: ChildNode, listIndex?: number): string {
     return `\`\`\`\n${element.textContent?.trimEnd() ?? ""}\n\`\`\``;
   }
   if (tagName === "div" || tagName === "p") {
-    return inline();
+    return withParagraphFormat(inline(), element);
   }
 
   return inline();
@@ -907,6 +1026,115 @@ export function MarkdownEditor({
     updateContentFromRichEditor();
 
     return true;
+  }
+
+  function getSelectedParagraphBlock() {
+    const editor = richEditorRef.current;
+    const selection = window.getSelection();
+    const anchorNode = selection?.anchorNode;
+
+    if (!editor || !anchorNode || !editor.contains(anchorNode)) {
+      return null;
+    }
+
+    const element =
+      anchorNode.nodeType === Node.ELEMENT_NODE
+        ? (anchorNode as HTMLElement)
+        : anchorNode.parentElement;
+
+    if (!element) {
+      return null;
+    }
+
+    const blockquote = element.closest("blockquote");
+    if (blockquote && editor.contains(blockquote)) {
+      return blockquote as HTMLElement;
+    }
+
+    const listItem = element.closest("li");
+    if (listItem?.parentElement && editor.contains(listItem.parentElement)) {
+      return listItem.parentElement as HTMLElement;
+    }
+
+    const block = element.closest("p,h1,h2,h3,ul,ol,pre,div");
+
+    return block && block !== editor && editor.contains(block)
+      ? (block as HTMLElement)
+      : null;
+  }
+
+  function updateSelectedParagraphBlock(
+    updater: (element: HTMLElement) => void,
+  ) {
+    if (mode === "preview") {
+      return false;
+    }
+
+    const editor = richEditorRef.current;
+
+    if (!editor || mode === "source") {
+      return false;
+    }
+
+    editor.focus();
+
+    let block = getSelectedParagraphBlock();
+
+    if (!block) {
+      document.execCommand("formatBlock", false, "p");
+      block = getSelectedParagraphBlock();
+    }
+
+    if (!block) {
+      return false;
+    }
+
+    updater(block);
+    updateContentFromRichEditor();
+
+    return true;
+  }
+
+  function applyParagraphAlign(align: ParagraphAlign) {
+    if (
+      updateSelectedParagraphBlock((block) => {
+        if (align === "left") {
+          delete block.dataset.align;
+        } else {
+          block.dataset.align = align;
+        }
+
+        block.style.textAlign = "";
+      })
+    ) {
+      return;
+    }
+
+    insertMarkdown(`${serializeParagraphFormat({ align, firstLineIndent: false }, true)}\n`, "");
+  }
+
+  function toggleFirstLineIndent() {
+    if (
+      updateSelectedParagraphBlock((block) => {
+        if (block.dataset.firstLineIndent === "true") {
+          delete block.dataset.firstLineIndent;
+          block.style.textIndent = "";
+        } else {
+          block.dataset.firstLineIndent = "true";
+          block.style.textIndent = "";
+        }
+      })
+    ) {
+      return;
+    }
+
+    insertMarkdown(
+      `${serializeParagraphFormat(
+        { align: "left", firstLineIndent: true },
+        true,
+      )}\n`,
+      "",
+    );
   }
 
   function applyInlineFormat(
@@ -1566,6 +1794,30 @@ export function MarkdownEditor({
                 </button>
               );
             })}
+            <span className="mx-1 h-7 w-px bg-slate-200 dark:bg-white/10" />
+            {paragraphAlignTools.map((tool) => {
+              const Icon = tool.icon;
+              return (
+                <button
+                  key={tool.align}
+                  type="button"
+                  title={tool.label}
+                  onClick={() => applyParagraphAlign(tool.align)}
+                  className="grid size-9 place-items-center rounded-xl text-slate-500 transition hover:bg-white/70 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                >
+                  <Icon className="size-4" />
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              title="首行缩进"
+              onClick={toggleFirstLineIndent}
+              className="grid size-9 place-items-center rounded-xl text-slate-500 transition hover:bg-white/70 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <ListIndentIncrease className="size-4" />
+            </button>
+            <span className="mx-1 h-7 w-px bg-slate-200 dark:bg-white/10" />
             <button
               type="button"
               title="引用"

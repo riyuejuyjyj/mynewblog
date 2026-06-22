@@ -133,6 +133,52 @@
     margin: 0 0 1rem;
   }
 
+  .rich-document-editor [data-align="center"],
+  .studio-markdown-preview [data-align="center"] {
+    text-align: center;
+  }
+
+  .rich-document-editor [data-align="right"],
+  .studio-markdown-preview [data-align="right"] {
+    text-align: right;
+  }
+
+  .rich-document-editor [data-align="justify"],
+  .studio-markdown-preview [data-align="justify"] {
+    text-align: justify;
+    text-justify: inter-ideograph;
+  }
+
+  .rich-document-editor h1[data-align="center"],
+  .rich-document-editor h2[data-align="center"],
+  .rich-document-editor h3[data-align="center"],
+  .studio-markdown-preview h1[data-align="center"],
+  .studio-markdown-preview h2[data-align="center"],
+  .studio-markdown-preview h3[data-align="center"] {
+    justify-content: center;
+  }
+
+  .rich-document-editor h1[data-align="right"],
+  .rich-document-editor h2[data-align="right"],
+  .rich-document-editor h3[data-align="right"],
+  .studio-markdown-preview h1[data-align="right"],
+  .studio-markdown-preview h2[data-align="right"],
+  .studio-markdown-preview h3[data-align="right"] {
+    justify-content: flex-end;
+  }
+
+  .rich-document-editor [data-first-line-indent="true"],
+  .studio-markdown-preview [data-first-line-indent="true"] {
+    text-indent: 2em;
+  }
+
+  .rich-document-editor ul[data-first-line-indent="true"],
+  .rich-document-editor ol[data-first-line-indent="true"],
+  .studio-markdown-preview ul[data-first-line-indent="true"],
+  .studio-markdown-preview ol[data-first-line-indent="true"] {
+    text-indent: 0;
+  }
+
   .rich-document-editor a {
     color: var(--coral-700);
     font-weight: 800;
