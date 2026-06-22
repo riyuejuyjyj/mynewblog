@@ -202,6 +202,12 @@ export function MusicSourcesPanel({
   const testResults = Object.values(sourceTestResults);
   const qingMusicLines = qingMusicStatus?.lines ?? [];
   const enabledQingMusicLines = qingMusicLines.filter((line) => line.enabled);
+  const searchableQingMusicProviderSet = new Set(
+    qingMusicStatus?.searchableProviderIds ?? [],
+  );
+  const searchableQingMusicLines = qingMusicLines.filter((line) =>
+    searchableQingMusicProviderSet.has(line.id),
+  );
 
   return (
     <>
@@ -312,7 +318,7 @@ export function MusicSourcesPanel({
           <div className="min-w-0 flex-1">
             <p className="text-sm font-black text-slate-950 dark:text-white">
               {qingMusicStatus
-                ? `${enabledQingMusicLines.length}/${qingMusicLines.length} 条线路启用`
+                ? `${enabledQingMusicLines.length}/${qingMusicLines.length} 条线路启用，${searchableQingMusicLines.length} 条已接入搜索`
                 : "等待远端线路清单"}
             </p>
             <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-300">
@@ -328,7 +334,7 @@ export function MusicSourcesPanel({
             在线播放
           </Badge>
           <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/30 dark:bg-emerald-400/12 dark:text-emerald-100">
-            已接入小窝源搜索
+            已接入 {searchableQingMusicLines.length} 条搜索
           </Badge>
           {qingMusicStatus?.url ? (
             <a
@@ -372,6 +378,22 @@ export function MusicSourcesPanel({
                 </p>
                 <p className="mt-2 truncate text-[10px] font-semibold text-slate-400">
                   {line.searchApi} / {line.detailApi}
+                </p>
+                <p
+                  className={cn(
+                    "mt-2 text-[10px] font-black",
+                    searchableQingMusicProviderSet.has(line.id)
+                      ? "text-emerald-600 dark:text-emerald-200"
+                      : line.enabled
+                        ? "text-amber-600 dark:text-amber-200"
+                        : "text-slate-400",
+                  )}
+                >
+                  {searchableQingMusicProviderSet.has(line.id)
+                    ? "搜索已接入"
+                    : line.enabled
+                      ? "清单启用，待接入"
+                      : "清单未启用"}
                 </p>
               </div>
             ))}

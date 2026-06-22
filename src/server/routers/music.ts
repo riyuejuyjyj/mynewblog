@@ -1626,6 +1626,7 @@ export const musicRouter = createTRPCRouter({
         lines: [],
         playableLevelCount: 0,
         recommendedProviderIds: [],
+        searchableProviderIds: [],
         url: QING_MUSIC_MANIFEST_URL,
       };
     }

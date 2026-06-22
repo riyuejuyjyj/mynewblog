@@ -239,6 +239,7 @@ export type StudioQingMusicManifestStatus = {
   lines: StudioQingMusicLine[];
   playableLevelCount: number;
   recommendedProviderIds: StudioSourceProvider[];
+  searchableProviderIds: StudioSourceProvider[];
   url: string;
 };
 
