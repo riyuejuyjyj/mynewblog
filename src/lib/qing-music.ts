@@ -653,6 +653,10 @@ export async function getEnabledQingMusicProviderIds() {
   return new Set(manifest.recommendedProviderIds);
 }
 
+function getFallbackQingMusicProviderIds() {
+  return new Set<QingMusicProviderId>(qingMusicSearchProviderIds);
+}
+
 export async function searchQingMusic(input: {
   keyword: string;
   limit?: number;
@@ -662,8 +666,8 @@ export async function searchQingMusic(input: {
 
   if (!keyword) return [];
 
-  const enabledProviders = await getEnabledQingMusicProviderIds().catch(
-    () => new Set<QingMusicProviderId>(["kw"]),
+  const enabledProviders = await getEnabledQingMusicProviderIds().catch(() =>
+    getFallbackQingMusicProviderIds(),
   );
   const requestedProviders =
     input.providers && input.providers.length > 0

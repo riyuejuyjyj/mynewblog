@@ -798,15 +798,27 @@ async function resolveBuiltInProviderAudio(input: {
 
   if (input.provider !== "kw" || !songId) return null;
 
-  const url = new URL("https://antiserver.kuwo.cn/anti.s");
+  const bitrate =
+    input.quality === "flac"
+      ? "2000kflac"
+      : input.quality === "128k"
+        ? "128kmp3"
+        : "320kmp3";
+  const url = new URL("http://mobi.kuwo.cn/mobi.s");
 
-  url.searchParams.set("type", "convert_url3");
-  url.searchParams.set("rid", `MUSIC_${songId}`);
-  url.searchParams.set("format", input.quality === "flac" ? "flac" : "mp3");
-  url.searchParams.set("response", "url");
+  url.searchParams.set("f", "web");
+  url.searchParams.set("user", "0");
+  url.searchParams.set("source", "kwplayercar_ar_6.0.0.9_B_jiakong_vh.apk");
+  url.searchParams.set("type", "convert_url_with_sign");
+  url.searchParams.set("br", bitrate);
+  url.searchParams.set("sig", "0");
+  url.searchParams.set("rid", songId);
 
   const response = await fetch(url, {
     cache: "no-store",
+    headers: {
+      "user-agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36",
+    },
   });
 
   if (!response.ok) {
@@ -820,7 +832,7 @@ async function resolveBuiltInProviderAudio(input: {
     contentType.includes("application/json") || trimmedText.startsWith("{")
       ? JSON.parse(trimmedText)
       : trimmedText;
-  const audioUrl = extractAudioUrl(payload);
+  const audioUrl = extractAudioUrl(payload).replace(/^http:\/\//i, "https://");
 
   if (!audioUrl) {
     throw new Error("Kuwo built-in resolver did not return an audio URL.");
@@ -830,8 +842,8 @@ async function resolveBuiltInProviderAudio(input: {
     audioUrl,
     provider: input.provider,
     quality: input.quality,
-    sourceFileName: "kuwo-built-in",
-    warnings: ["Used built-in Kuwo URL resolver."],
+    sourceFileName: "kuwo-mobi-built-in",
+    warnings: ["Used built-in Kuwo car/mobile URL resolver."],
   };
 }
 

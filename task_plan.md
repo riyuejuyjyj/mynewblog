@@ -96,7 +96,7 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 ## Decisions Made
 - Music player work is paused as a feature track and moved to bugfix-only.
 - QingMusic is treated as an online line manifest only: local/downloaded music should be cached through R2, while production playback should prefer R2-cached downloads and use online lines only for uncached streaming/resolve.
-- QingMusic production search now uses fetch-compatible adapters for `kw`/`kg`/`wy`/`tx`; `mg` remains manifest-visible but disabled until a Worker-compatible Migu search path is verified.
+- QingMusic production search now uses fetch-compatible adapters for `kw`/`kg`/`wy`/`tx`, and falls back to those four adapters if the remote manifest is unavailable; `mg` remains manifest-visible but disabled until a Worker-compatible Migu search path is verified. Kuwo playback uses the `mobi.s` car/mobile resolver instead of `antiserver`.
 - The next mainline is production readiness plus blog/Studio publishing, not deeper playback instrumentation.
 - Cloudflare deployment target is Workers via `@opennextjs/cloudflare`, not a static export and not plain `next start`.
 - GitHub Actions is the preferred production build/deploy path because it uses Linux CI and avoids the current Windows symlink blocker.
