@@ -36,6 +36,8 @@ const postInput = z.object({
   published: z.boolean().default(false),
 });
 
+const UNIQUE_SLUG_ATTEMPT_LIMIT = 100;
+
 function assertDatabase() {
   if (!hasDatabase) {
     throw new TRPCError({
@@ -43,6 +45,24 @@ function assertDatabase() {
       message: "Studio needs DATABASE_URL to write posts.",
     });
   }
+}
+
+async function getAvailablePostSlug(
+  db: typeof import("@/db").db,
+  baseSlug: string,
+) {
+  for (let attempt = 1; attempt <= UNIQUE_SLUG_ATTEMPT_LIMIT; attempt += 1) {
+    const candidate = attempt === 1 ? baseSlug : `${baseSlug}-${attempt}`;
+    const conflict = await db
+      .select({ id: posts.id })
+      .from(posts)
+      .where(eq(posts.slug, candidate))
+      .limit(1);
+
+    if (conflict.length === 0) return candidate;
+  }
+
+  return `${baseSlug}-${Date.now().toString(36)}`;
 }
 
 export const studioRouter = createTRPCRouter({
@@ -118,15 +138,17 @@ export const studioRouter = createTRPCRouter({
   upsertPost: studioProcedure.input(postInput).mutation(async ({ ctx, input }) => {
     assertDatabase();
 
-    const slugConflict = await ctx.db
-      .select({ id: posts.id })
-      .from(posts)
-      .where(
-        input.id
-          ? and(eq(posts.slug, input.slug), ne(posts.id, input.id))
-          : eq(posts.slug, input.slug),
-      )
-      .limit(1);
+    const slug = input.id
+      ? input.slug
+      : await getAvailablePostSlug(ctx.db, input.slug);
+
+    const slugConflict = input.id
+      ? await ctx.db
+          .select({ id: posts.id })
+          .from(posts)
+          .where(and(eq(posts.slug, slug), ne(posts.id, input.id)))
+          .limit(1)
+      : [];
 
     if (slugConflict.length > 0) {
       throw new TRPCError({
@@ -136,7 +158,7 @@ export const studioRouter = createTRPCRouter({
     }
 
     const values = {
-      slug: input.slug,
+      slug,
       title: input.title.trim(),
       excerpt: input.excerpt.trim(),
       content: rewriteStorageObjectUrlsInText(input.content.trim()),
@@ -160,6 +182,7 @@ export const studioRouter = createTRPCRouter({
 
       return {
         id: updated.id,
+        slug: updated.slug,
       };
     }
 
@@ -167,6 +190,7 @@ export const studioRouter = createTRPCRouter({
 
     return {
       id: created.id,
+      slug: created.slug,
     };
   }),
 

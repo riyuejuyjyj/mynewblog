@@ -561,7 +561,12 @@ export function StudioExperience() {
         published: payload.published,
       });
 
-      setForm((current) => ({ ...current, ...payload, id: result.id }));
+      setForm((current) => ({
+        ...current,
+        ...payload,
+        id: result.id,
+        slug: result.slug,
+      }));
       setStatusMessage(payload.published ? "文章已发布到 Neon。" : "草稿已保存到 Neon。");
       setOperations((current) =>
         [
