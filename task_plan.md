@@ -149,6 +149,7 @@ Current mainline has moved past the 2026-06-11 Studio media pass: the worktree i
 ### P0: Production QingMusic Playback Bugfix
 - [x] Reproduce the production failure path: QingMusic search returns candidates, but clicking playback falls through to the Cloudflare-disabled server-side plugin runtime.
 - [x] Add Worker-compatible built-in playback resolvers for the verified QingMusic online lines: Kuwo (`kw`), Kugou (`kg`), and NetEase (`wy`).
+- [x] Add independent built-in lyric fallback for `kw`/`kg`/`wy`: keep the playable audio source stable, but fetch lyrics from another QingMusic line when the audio line has no lyrics.
 - [x] Keep the Cloudflare bundle small by not re-enabling MusicFree/LX server-side plugin execution in production.
 - [ ] Re-test the production Studio music search/play flow after push; QQ Music (`tx`) remains search-visible but playback should fall back or report that Cloudflare production has no built-in resolver yet.
 

@@ -25,7 +25,6 @@ import {
   type MusicPluginResolveResult,
   resolveMusicPlugin,
   type MusicSearchCandidate,
-  resolveMusicPluginLyricWithFallback,
   resolveMusicPluginWithFallback,
   searchMusicPlugins,
 } from "@/lib/music-plugins";
@@ -796,6 +795,185 @@ function extractAudioUrl(value: unknown): string {
   return "";
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getRecordText(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getNestedRecord(
+  record: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> | null {
+  return asRecord(record[key]);
+}
+
+function extractLyricText(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return "";
+  }
+
+  const record = value as Record<string, unknown>;
+
+  for (const key of ["lyric", "lrc", "content", "text", "data"]) {
+    const candidate = record[key];
+    const lyric = extractLyricText(candidate);
+
+    if (lyric) return lyric;
+  }
+
+  return "";
+}
+
+function formatLrcTime(seconds: number) {
+  const safeSeconds = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  const minutes = Math.floor(safeSeconds / 60);
+  const wholeSeconds = Math.floor(safeSeconds % 60);
+  const hundredths = Math.floor((safeSeconds - Math.floor(safeSeconds)) * 100);
+  const pad = (value: number) => value.toString().padStart(2, "0");
+
+  return `${pad(minutes)}:${pad(wholeSeconds)}.${pad(hundredths)}`;
+}
+
+function decodeBase64Utf8(value: string) {
+  const binary = globalThis.atob(value);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+
+  return new TextDecoder().decode(bytes).trim();
+}
+
+function toKuwoLrc(payload: unknown) {
+  const root = asRecord(payload);
+  const data = root ? getNestedRecord(root, "data") : null;
+  const lyricRows = data?.lrclist;
+
+  if (!Array.isArray(lyricRows)) return extractLyricText(payload);
+
+  return lyricRows
+    .map((row) => {
+      const record = asRecord(row);
+      if (!record) return "";
+
+      const lineLyric = getRecordText(record, "lineLyric");
+      const time = Number(getRecordText(record, "time"));
+
+      if (!lineLyric) return "";
+
+      return `[${formatLrcTime(time)}]${lineLyric}`;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function resolveKuwoBuiltInLyric(songId: string) {
+  const url = new URL("https://m.kuwo.cn/newh5/singles/songinfoandlrc");
+
+  url.searchParams.set("musicId", songId);
+
+  const payload = await fetchJsonWithTimeout(
+    url,
+    {
+      headers: {
+        accept: "application/json,text/plain,*/*",
+        referer: "https://m.kuwo.cn/",
+        "user-agent": QING_MUSIC_RESOLVE_USER_AGENT,
+      },
+    },
+    "Kuwo built-in lyric resolver",
+  );
+
+  return toKuwoLrc(payload);
+}
+
+async function resolveKugouBuiltInLyric(songId: string) {
+  const searchUrl = new URL("https://lyrics.kugou.com/search");
+
+  searchUrl.searchParams.set("ver", "1");
+  searchUrl.searchParams.set("man", "yes");
+  searchUrl.searchParams.set("client", "pc");
+  searchUrl.searchParams.set("hash", songId);
+
+  const searchPayload = await fetchJsonWithTimeout(
+    searchUrl,
+    {
+      headers: {
+        accept: "application/json,text/plain,*/*",
+        referer: "https://www.kugou.com/",
+        "user-agent": QING_MUSIC_RESOLVE_USER_AGENT,
+      },
+    },
+    "Kugou lyric search",
+  );
+  const searchRecord = asRecord(searchPayload);
+  const candidates = Array.isArray(searchRecord?.candidates)
+    ? searchRecord.candidates
+    : [];
+  const firstCandidate = asRecord(candidates[0]);
+  const lyricId = firstCandidate ? getRecordText(firstCandidate, "id") : "";
+  const accessKey = firstCandidate
+    ? getRecordText(firstCandidate, "accesskey")
+    : "";
+
+  if (!lyricId || !accessKey) return "";
+
+  const downloadUrl = new URL("https://lyrics.kugou.com/download");
+
+  downloadUrl.searchParams.set("ver", "1");
+  downloadUrl.searchParams.set("client", "pc");
+  downloadUrl.searchParams.set("id", lyricId);
+  downloadUrl.searchParams.set("accesskey", accessKey);
+  downloadUrl.searchParams.set("fmt", "lrc");
+  downloadUrl.searchParams.set("charset", "utf8");
+
+  const downloadPayload = await fetchJsonWithTimeout(
+    downloadUrl,
+    {
+      headers: {
+        accept: "application/json,text/plain,*/*",
+        referer: "https://www.kugou.com/",
+        "user-agent": QING_MUSIC_RESOLVE_USER_AGENT,
+      },
+    },
+    "Kugou lyric download",
+  );
+  const downloadRecord = asRecord(downloadPayload);
+  const encodedContent = downloadRecord
+    ? getRecordText(downloadRecord, "content")
+    : "";
+
+  return encodedContent ? decodeBase64Utf8(encodedContent) : "";
+}
+
+async function resolveNeteaseBuiltInLyric(songId: string) {
+  const url = new URL("https://music.163.com/api/song/lyric");
+
+  url.searchParams.set("id", songId);
+  url.searchParams.set("lv", "-1");
+  url.searchParams.set("kv", "-1");
+  url.searchParams.set("tv", "-1");
+
+  const payload = await fetchJsonWithTimeout(
+    url,
+    {
+      headers: {
+        accept: "application/json,text/plain,*/*",
+        referer: "https://music.163.com/",
+        "user-agent": QING_MUSIC_RESOLVE_USER_AGENT,
+      },
+    },
+    "Netease lyric resolver",
+  );
+
+  return extractLyricText(payload);
+}
+
 async function fetchJsonWithTimeout(
   url: URL,
   init: RequestInit,
@@ -839,6 +1017,12 @@ function toKuwoBitrate(quality: z.infer<typeof qualitySchema>) {
 }
 
 function hasBuiltInProviderResolver(provider: z.infer<typeof sourceProviderSchema>) {
+  return provider === "kw" || provider === "kg" || provider === "wy";
+}
+
+function hasBuiltInProviderLyricResolver(
+  provider: z.infer<typeof sourceProviderSchema>,
+) {
   return provider === "kw" || provider === "kg" || provider === "wy";
 }
 
@@ -991,6 +1175,29 @@ async function resolveBuiltInProviderAudio(input: {
   };
 }
 
+async function resolveBuiltInProviderLyric(input: {
+  provider: z.infer<typeof sourceProviderSchema>;
+  songId: string;
+}) {
+  const songId = input.songId.trim();
+
+  if (!songId || !hasBuiltInProviderLyricResolver(input.provider)) return null;
+
+  const lyric =
+    input.provider === "kw"
+      ? await resolveKuwoBuiltInLyric(songId)
+      : input.provider === "kg"
+        ? await resolveKugouBuiltInLyric(songId)
+        : await resolveNeteaseBuiltInLyric(songId);
+
+  if (!lyric.trim()) return null;
+
+  return {
+    lyric,
+    source: input.provider,
+  };
+}
+
 function makeBuiltInProviderResolveErrorMessage(input: {
   lastErrorMessage?: string;
   provider: z.infer<typeof sourceProviderSchema>;
@@ -1002,6 +1209,52 @@ function makeBuiltInProviderResolveErrorMessage(input: {
   }
 
   return `Cloudflare production does not include a built-in online resolver for ${input.provider}; use an R2-cached track or switch to kw/kg/wy.`;
+}
+
+async function resolveBuiltInLyricWithFallback(input: {
+  candidate?: MusicSearchCandidate;
+  definitions: MusicPluginDefinition[];
+  provider: z.infer<typeof sourceProviderSchema>;
+  songId: string;
+}) {
+  const directLyric = await resolveBuiltInProviderLyric({
+    provider: input.provider,
+    songId: input.songId,
+  }).catch(() => null);
+
+  if (directLyric?.lyric.trim()) return directLyric;
+
+  const keyword = [input.candidate?.title, input.candidate?.artist]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  if (!keyword) return null;
+
+  const fallbackProviders = (["kw", "wy", "kg"] as const).filter(
+    (provider) => provider !== input.provider,
+  );
+  const candidates = await searchMusicPlugins({
+    definitions: input.definitions,
+    keyword,
+    limit: 12,
+    providers: fallbackProviders,
+  }).catch(() => []);
+
+  for (const provider of fallbackProviders) {
+    const candidate = candidates.find((item) => item.source === provider);
+
+    if (!candidate) continue;
+
+    const lyric = await resolveBuiltInProviderLyric({
+      provider,
+      songId: candidate.id,
+    }).catch(() => null);
+
+    if (lyric?.lyric.trim()) return lyric;
+  }
+
+  return null;
 }
 
 async function getConfiguredSearchDefinitions(ctx: { db: typeof import("@/db").db }) {
@@ -2400,95 +2653,95 @@ export const musicRouter = createTRPCRouter({
             qingMusicEnabledProviders.has(sourceProvider.data));
 
         if (!providerEnabled) {
-          throw new Error(`${input.provider} 搜索源已停用。`);
+          throw new Error(input.provider + " search provider is disabled.");
         }
 
-        if (input.provider !== "bilibili" && input.songId.trim()) {
-          const lyricPromise = resolveMusicPluginLyricWithFallback({
-            ...input,
-            definitions: searchDefinitions,
-          }).catch(() => null);
-          const configuredResult = await resolveWithConfiguredSource(ctx, {
-            provider: input.provider,
-            quality: input.quality,
-            songId: input.songId,
-          }).catch(() => null);
-
-          if (configuredResult) {
-            const lyricResult = await lyricPromise;
-
-            return {
-              audioUrl: configuredResult.audioUrl,
-              ...(lyricResult
-                ? {
-                    lyric: lyricResult.lyric,
-                    lyricSource: lyricResult.source,
-                  }
-                : {}),
-              source: input.provider,
-              title: input.candidate?.title,
-              warnings: [
-                `已使用 PG 音源 ${configuredResult.sourceFileName} 解析。`,
-                ...configuredResult.warnings,
-              ],
-            };
-          }
-
-          let builtInProviderErrorMessage = "";
-          const builtInResult = sourceProvider.success
-            ? await resolveBuiltInProviderAudio({
-                provider: sourceProvider.data,
-                quality: input.quality,
-                songId: input.songId,
-              }).catch((error: unknown) => {
-                builtInProviderErrorMessage = toErrorMessage(error);
-                return null;
-              })
-            : null;
-
-          if (builtInResult) {
-            const lyricResult = await lyricPromise;
-
-            return {
-              audioUrl: builtInResult.audioUrl,
-              ...(lyricResult
-                ? {
-                    lyric: lyricResult.lyric,
-                    lyricSource: lyricResult.source,
-                  }
-                : {}),
-              source: input.provider,
-              title: input.candidate?.title,
-              warnings: builtInResult.warnings,
-            };
-          }
-
-          if (sourceProvider.success) {
-            throw new Error(
-              makeBuiltInProviderResolveErrorMessage({
-                lastErrorMessage: builtInProviderErrorMessage,
-                provider: sourceProvider.data,
-              }),
-            );
-          }
-        }
-
-        if (sourceProvider.success) {
+        if (!sourceProvider.success) {
           throw new Error(
-            makeBuiltInProviderResolveErrorMessage({
-              provider: sourceProvider.data,
-            }),
+            "Cloudflare production cannot execute " +
+              input.provider +
+              " server-side music plugins.",
           );
         }
 
+        const songId = input.songId.trim();
+
+        if (!songId) {
+          throw new Error("QingMusic playback requires a song id, hash, or mid.");
+        }
+
+        const lyricPromise = resolveBuiltInLyricWithFallback({
+          candidate: input.candidate,
+          definitions: searchDefinitions,
+          provider: sourceProvider.data,
+          songId,
+        }).catch(() => null);
+        const buildLyricPayload = async () => {
+          const lyricResult = await lyricPromise;
+
+          return lyricResult
+            ? {
+                lyric: lyricResult.lyric,
+                lyricSource: lyricResult.source,
+              }
+            : {};
+        };
+        const configuredResult = await resolveWithConfiguredSource(ctx, {
+          provider: sourceProvider.data,
+          quality: input.quality,
+          songId,
+        }).catch(() => null);
+
+        if (configuredResult) {
+          const lyricPayload = await buildLyricPayload();
+
+          return {
+            audioUrl: configuredResult.audioUrl,
+            ...lyricPayload,
+            source: input.provider,
+            title: input.candidate?.title,
+            warnings: [
+              "Used configured source " + configuredResult.sourceFileName + ".",
+              ...configuredResult.warnings,
+            ],
+          };
+        }
+
+        let builtInProviderErrorMessage = "";
+        const builtInResult = await resolveBuiltInProviderAudio({
+          provider: sourceProvider.data,
+          quality: input.quality,
+          songId,
+        }).catch((error) => {
+          builtInProviderErrorMessage = toErrorMessage(error);
+          return null;
+        });
+
+        if (builtInResult) {
+          const lyricPayload = await buildLyricPayload();
+
+          return {
+            audioUrl: builtInResult.audioUrl,
+            ...lyricPayload,
+            source: input.provider,
+            title: input.candidate?.title,
+            warnings: builtInResult.warnings,
+          };
+        }
+
         throw new Error(
-          `Cloudflare production cannot execute ${input.provider} server-side music plugins.`,
+          makeBuiltInProviderResolveErrorMessage({
+            lastErrorMessage: builtInProviderErrorMessage,
+            provider: sourceProvider.data,
+          }),
         );
       } catch (error) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
-            error instanceof Error ? error.message : "插件音源解析失败，请换一个来源试试。",
+            error instanceof Error
+              ? error.message
+              : "QingMusic online playback resolve failed; try another provider.",
         });
       }
     }),
