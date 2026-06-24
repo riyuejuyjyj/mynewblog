@@ -118,7 +118,7 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - Cloudflare build/deploy should run from GitHub Actions/Linux CI first. WSL remains useful for local reproduction, but it is no longer the main release path.
 
 ## Status
-Currently continuing the 2026-06-10 optimization plan: Studio comments now expose status filters, parent/reply context, author replies from Studio, and lightweight spam marking for public submissions. Next is authenticated visual QA and then the publishing/R2 reliability path.
+Current mainline has moved past the 2026-06-11 Studio media pass: the worktree is clean, recent commits added the Word-style writing surface plus paragraph formatting in Studio, and QingMusic production search now has multi-source plus hardened fallback logic. The next closure step is no longer another static UI pass; it is runtime QA across Studio/music/media, followed by targeted refactoring of the oversized editor/orchestrator files before the next production push.
 
 ## Next Pass: 2026-06-11
 
@@ -143,3 +143,36 @@ Currently continuing the 2026-06-10 optimization plan: Studio comments now expos
 - [ ] Split `markdown-editor.tsx` by extracting publish-dialog state and media-upload helpers before adding more editor features.
 - [ ] Trim `studio-experience.tsx` into smaller view-specific hooks/helpers so upload, auth/invite, and board orchestration stop growing in one file.
 - [ ] Only resume broader production-readiness and Cloudflare follow-through after the authenticated Studio workflow is comfortable for daily use.
+
+## Next Pass: 2026-06-24
+
+### P0: Production QingMusic Playback Bugfix
+- [x] Reproduce the production failure path: QingMusic search returns candidates, but clicking playback falls through to the Cloudflare-disabled server-side plugin runtime.
+- [x] Add Worker-compatible built-in playback resolvers for the verified QingMusic online lines: Kuwo (`kw`), Kugou (`kg`), and NetEase (`wy`).
+- [x] Keep the Cloudflare bundle small by not re-enabling MusicFree/LX server-side plugin execution in production.
+- [ ] Re-test the production Studio music search/play flow after push; QQ Music (`tx`) remains search-visible but playback should fall back or report that Cloudflare production has no built-in resolver yet.
+
+### P0: Fresh Verification Baseline
+- [x] `bunx tsc --noEmit`
+- [x] `bun run lint`
+- [x] Re-run `bun run build` on the current `main` tip before any new push; the last recorded build success predates the latest Studio editor and QingMusic fallback commits.
+
+### P1: Runtime QA For The New Mainline
+- [ ] Do an authenticated `/studio` smoke test covering `dashboard`, `posts`, `editor`, `media`, `comments`, and `music` on mobile, tablet, and desktop widths.
+- [ ] Specifically verify the Word-style editor interactions added after the June 11 plan: toolbar formatting, paragraph alignment, first-line indent, autosave, preview/source switching, and image upload/cover selection.
+- [ ] Re-check the R2/media path end to end on the current code: signed upload, server fallback upload, proxy preview URL, public URL, post cover persistence, and delete cleanup.
+- [ ] Smoke test public blog routes that consume the same media rewrite helpers: `/`, `/posts`, `/posts/[slug]`, and public comments on at least one published post.
+
+### P2: QingMusic Search And Playback Validation
+- [ ] Verify the current QingMusic manifest/status surface in Studio matches the new code path: enabled line count, searchable line count, recommended provider order, and disabled `mg` presentation.
+- [ ] Run an in-app search/resolve smoke test for `kw`, `kg`, `wy`, and `tx`, confirming the new production fallback still returns playable candidates when the remote manifest is unavailable.
+- [ ] Confirm the production-facing cache story still holds: R2-backed downloaded audio/cover objects work, while uncached streaming continues to rely on online line resolution only as a fallback path.
+
+### P3: Complexity Reduction Before More Features
+- [ ] Refactor `src/components/studio/markdown-editor.tsx` first. At 2300+ lines, it should be split into at least: rich writing surface helpers, publish dialog state/UI, autosave orchestration, and local workspace tree utilities.
+- [ ] Refactor `src/components/studio/studio-experience.tsx` next by pulling out auth/invite flow, upload helpers, and per-board data/mutation wiring into smaller hooks or helper modules.
+- [ ] After the Studio refactor, evaluate whether `src/server/routers/music.ts` should be split around QingMusic manifest/search logic versus playlist/download CRUD before any further music-facing changes.
+
+### P4: Production Readiness Resume
+- [ ] Once the runtime QA and refactor passes are stable, re-enter the Cloudflare/OpenNext release track: Linux/GitHub Actions build verification, env/secrets recheck, and an updated deploy/runbook note.
+- [ ] Keep the repo-specific finish flow unchanged: verification gate -> commit -> push `origin/main` -> report deploy-relevant status.

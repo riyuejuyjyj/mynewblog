@@ -63,6 +63,9 @@ const qualitySchema = z.enum(["128k", "320k", "flac"]);
 const MAX_SOURCE_CODE_BYTES = 512 * 1024;
 const MAX_COVER_BYTES = 6 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 80 * 1024 * 1024;
+const QING_MUSIC_RESOLVE_TIMEOUT_MS = 12_000;
+const QING_MUSIC_RESOLVE_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
 const CHANGQING_MANIFEST_URL = "https://13413.kstore.vip/lxmusic/changqing.json";
 const CHANGQING_SOURCE_NAME = "长青 SVIP 音源";
 const CHANGQING_SOURCE_PATH =
@@ -688,10 +691,6 @@ function providerFilter(provider: z.infer<typeof sourceProviderSchema>) {
   return sql`${musicSources.providerKeys} ? ${provider}`;
 }
 
-function toPluginProvider(provider: z.infer<typeof providerSchema>) {
-  return provider === "manual" ? null : (provider satisfies MusicPluginProvider);
-}
-
 function makeFallbackCandidate(input: {
   album?: string;
   artist?: string;
@@ -771,6 +770,14 @@ function assertHttpAudioUrl(value: string) {
   }
 }
 
+function normalizePlaybackAudioUrl(value: string) {
+  const audioUrl = assertHttpAudioUrl(value);
+
+  if (!audioUrl) return "";
+
+  return audioUrl.replace(/^http:\/\//i, "https://");
+}
+
 function extractAudioUrl(value: unknown): string {
   if (typeof value === "string") return assertHttpAudioUrl(value);
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -789,30 +796,65 @@ function extractAudioUrl(value: unknown): string {
   return "";
 }
 
-async function resolveBuiltInProviderAudio(input: {
-  provider: z.infer<typeof sourceProviderSchema>;
+async function fetchJsonWithTimeout(
+  url: URL,
+  init: RequestInit,
+  label: string,
+) {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    QING_MUSIC_RESOLVE_TIMEOUT_MS,
+  );
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`${label} failed with ${response.status}.`);
+    }
+
+    return (await response.json()) as unknown;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function toQingMusicResolveLevel(quality: z.infer<typeof qualitySchema>) {
+  if (quality === "flac") return "lossless";
+  if (quality === "128k") return "standard";
+
+  return "exhigh";
+}
+
+function toKuwoBitrate(quality: z.infer<typeof qualitySchema>) {
+  if (quality === "flac") return "2000kflac";
+  if (quality === "128k") return "128kmp3";
+
+  return "320kmp3";
+}
+
+function hasBuiltInProviderResolver(provider: z.infer<typeof sourceProviderSchema>) {
+  return provider === "kw" || provider === "kg" || provider === "wy";
+}
+
+async function resolveKuwoBuiltInAudio(input: {
   quality: z.infer<typeof qualitySchema>;
   songId: string;
 }) {
-  const songId = input.songId.trim();
-
-  if (input.provider !== "kw" || !songId) return null;
-
-  const bitrate =
-    input.quality === "flac"
-      ? "2000kflac"
-      : input.quality === "128k"
-        ? "128kmp3"
-        : "320kmp3";
   const url = new URL("http://mobi.kuwo.cn/mobi.s");
 
   url.searchParams.set("f", "web");
   url.searchParams.set("user", "0");
   url.searchParams.set("source", "kwplayercar_ar_6.0.0.9_B_jiakong_vh.apk");
   url.searchParams.set("type", "convert_url_with_sign");
-  url.searchParams.set("br", bitrate);
+  url.searchParams.set("br", toKuwoBitrate(input.quality));
   url.searchParams.set("sig", "0");
-  url.searchParams.set("rid", songId);
+  url.searchParams.set("rid", input.songId);
 
   const response = await fetch(url, {
     cache: "no-store",
@@ -832,7 +874,7 @@ async function resolveBuiltInProviderAudio(input: {
     contentType.includes("application/json") || trimmedText.startsWith("{")
       ? JSON.parse(trimmedText)
       : trimmedText;
-  const audioUrl = extractAudioUrl(payload).replace(/^http:\/\//i, "https://");
+  const audioUrl = normalizePlaybackAudioUrl(extractAudioUrl(payload));
 
   if (!audioUrl) {
     throw new Error("Kuwo built-in resolver did not return an audio URL.");
@@ -840,11 +882,126 @@ async function resolveBuiltInProviderAudio(input: {
 
   return {
     audioUrl,
-    provider: input.provider,
-    quality: input.quality,
     sourceFileName: "kuwo-mobi-built-in",
     warnings: ["Used built-in Kuwo car/mobile URL resolver."],
   };
+}
+
+async function resolveKugouBuiltInAudio(input: {
+  quality: z.infer<typeof qualitySchema>;
+  songId: string;
+}) {
+  const url = new URL("https://music.haitangw.cc/kgqq1/kg.php");
+
+  url.searchParams.set("id", input.songId);
+  url.searchParams.set("type", "json");
+  url.searchParams.set("level", toQingMusicResolveLevel(input.quality));
+
+  const payload = await fetchJsonWithTimeout(
+    url,
+    {
+      headers: {
+        accept: "application/json,text/plain,*/*",
+        referer: "https://www.kugou.com/",
+        "user-agent": QING_MUSIC_RESOLVE_USER_AGENT,
+      },
+    },
+    "Kugou built-in resolver",
+  );
+  const audioUrl = normalizePlaybackAudioUrl(extractAudioUrl(payload));
+
+  if (!audioUrl) {
+    throw new Error("Kugou built-in resolver did not return an audio URL.");
+  }
+
+  return {
+    audioUrl,
+    sourceFileName: "qingmusic-kugou-built-in",
+    warnings: ["Used QingMusic-compatible built-in Kugou resolver."],
+  };
+}
+
+async function resolveNeteaseBuiltInAudio(input: {
+  quality: z.infer<typeof qualitySchema>;
+  songId: string;
+}) {
+  const url = new URL("https://music.163.com/api/song/enhance/player/url/v1");
+  const numericSongId = Number(input.songId);
+  const songId =
+    Number.isFinite(numericSongId) && numericSongId > 0
+      ? numericSongId
+      : input.songId;
+
+  url.searchParams.set("ids", JSON.stringify([songId]));
+  url.searchParams.set("level", toQingMusicResolveLevel(input.quality));
+  url.searchParams.set("encodeType", "mp3");
+
+  const payload = await fetchJsonWithTimeout(
+    url,
+    {
+      headers: {
+        accept: "application/json,text/plain,*/*",
+        origin: "https://music.163.com",
+        referer: "https://music.163.com/",
+        "user-agent": QING_MUSIC_RESOLVE_USER_AGENT,
+      },
+      method: "POST",
+    },
+    "Netease built-in resolver",
+  );
+  const audioUrl = normalizePlaybackAudioUrl(extractAudioUrl(payload));
+
+  if (!audioUrl) {
+    throw new Error("Netease built-in resolver did not return an audio URL.");
+  }
+
+  return {
+    audioUrl,
+    sourceFileName: "netease-player-url-built-in",
+    warnings: ["Used built-in Netease player URL resolver."],
+  };
+}
+
+async function resolveBuiltInProviderAudio(input: {
+  provider: z.infer<typeof sourceProviderSchema>;
+  quality: z.infer<typeof qualitySchema>;
+  songId: string;
+}) {
+  const songId = input.songId.trim();
+
+  if (!songId) return null;
+
+  const result =
+    input.provider === "kw"
+      ? await resolveKuwoBuiltInAudio({ quality: input.quality, songId })
+      : input.provider === "kg"
+        ? await resolveKugouBuiltInAudio({ quality: input.quality, songId })
+        : input.provider === "wy"
+          ? await resolveNeteaseBuiltInAudio({ quality: input.quality, songId })
+          : null;
+
+  if (!result) return null;
+
+  return {
+    audioUrl: result.audioUrl,
+    provider: input.provider,
+    quality: input.quality,
+    sourceFileName: result.sourceFileName,
+    warnings: result.warnings,
+  };
+}
+
+function makeBuiltInProviderResolveErrorMessage(input: {
+  lastErrorMessage?: string;
+  provider: z.infer<typeof sourceProviderSchema>;
+}) {
+  if (hasBuiltInProviderResolver(input.provider)) {
+    return input.lastErrorMessage
+      ? `QingMusic online resolver failed for ${input.provider}: ${input.lastErrorMessage}`
+      : `QingMusic online resolver failed for ${input.provider}; try another provider or retry later.`;
+  }
+
+  return `Cloudflare production does not include a built-in online resolver for ${input.provider}; use an R2-cached track or switch to kw/kg/wy.`;
 }
 
 async function getConfiguredSearchDefinitions(ctx: { db: typeof import("@/db").db }) {
@@ -895,6 +1052,7 @@ async function resolveDownloadAudio(
   if (pluginProvider.success) {
     const configuredErrorMessages: string[] = [];
     const sourceProvider = sourceProviderSchema.safeParse(pluginProvider.data);
+    let builtInProviderErrorMessage = "";
 
     if (sourceProvider.success && input.sourceSongId.trim()) {
       const configuredResult = await resolveWithConfiguredSource(ctx, {
@@ -925,8 +1083,9 @@ async function resolveDownloadAudio(
         quality: input.quality,
         songId: input.sourceSongId,
       }).catch((error: unknown) => {
+        builtInProviderErrorMessage = toErrorMessage(error);
         configuredErrorMessages.push(
-          `Built-in provider resolver failed: ${toErrorMessage(error)}`,
+          `Built-in provider resolver failed: ${builtInProviderErrorMessage}`,
         );
         return null;
       });
@@ -937,6 +1096,16 @@ async function resolveDownloadAudio(
           lyric: input.lyric,
           warnings: builtInResult.warnings,
         };
+      }
+
+      if (!input.audioUrl.trim()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: makeBuiltInProviderResolveErrorMessage({
+            lastErrorMessage: builtInProviderErrorMessage,
+            provider: sourceProvider.data,
+          }),
+        });
       }
     }
 
@@ -2119,7 +2288,7 @@ export const musicRouter = createTRPCRouter({
         if (!input.audioUrl) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "本地/R2 歌曲需要音频 URL。",
+            message: "Manual/R2 tracks require an audio URL.",
           });
         }
 
@@ -2132,93 +2301,41 @@ export const musicRouter = createTRPCRouter({
         };
       }
 
-      if (!input.songId.trim()) {
+      const songId = input.songId.trim();
+
+      if (!songId) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "平台音源播放需要歌曲 ID / hash / mid。",
+          message: "Platform playback requires a song id, hash, or mid.",
         });
       }
 
-      const configuredErrorMessages: string[] = [];
       const configuredResult = await resolveWithConfiguredSource(ctx, {
         provider: input.provider,
         quality: input.quality,
-        songId: input.songId,
-      }).catch((error: unknown) => {
-        configuredErrorMessages.push(
-          error instanceof Error ? error.message : "PG 音源解析失败。",
-        );
-        return null;
-      });
+        songId,
+      }).catch(() => null);
 
       if (configuredResult) return configuredResult;
 
+      let builtInProviderErrorMessage = "";
       const builtInResult = await resolveBuiltInProviderAudio({
         provider: input.provider,
         quality: input.quality,
-        songId: input.songId,
+        songId,
       }).catch((error: unknown) => {
-        configuredErrorMessages.push(toErrorMessage(error));
+        builtInProviderErrorMessage = toErrorMessage(error);
         return null;
       });
 
       if (builtInResult) return builtInResult;
 
-      const pluginProvider = toPluginProvider(input.provider);
-      const searchDefinitions = await getConfiguredSearchDefinitions(ctx);
-
-      if (
-        pluginProvider &&
-        searchDefinitions.some((definition) => definition.provider === pluginProvider)
-      ) {
-        const fallbackCandidate = makeFallbackCandidate({
-          album: input.album,
-          artist: input.artist,
-          coverUrl: input.coverUrl,
-          provider: pluginProvider,
-          songId: input.songId,
-          title: input.title,
-        });
-        const fallbackResult = await resolveMusicPluginWithFallback({
-          candidate: fallbackCandidate,
-          definitions: searchDefinitions,
-          provider: pluginProvider,
-          quality: input.quality,
-          songId: input.songId,
-        }).catch(() => null);
-
-        if (fallbackResult) {
-          return {
-            audioUrl: fallbackResult.audioUrl,
-            lyric: fallbackResult.lyric,
-            lyricSource: fallbackResult.lyricSource,
-            provider: input.provider,
-            quality: input.quality,
-            sourceFileName: pluginProvider,
-            warnings: [
-              ...configuredErrorMessages.map(
-                (message) => `PG 音源失败，已切换远程搜索源：${message}`,
-              ),
-              ...fallbackResult.warnings,
-            ],
-          };
-        }
-      }
-
-      if (!input.sourcePath.trim()) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            configuredErrorMessages.at(-1) ??
-            "还没有可用的 PG/远程音源配置，请先导入长青源或启用远程搜索源。",
-        });
-      }
-
-      return resolveLxSourceMusicUrl({
-        provider: input.provider,
-        quality: input.quality,
-        songId: input.songId,
-        sourcePath: input.sourcePath,
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: makeBuiltInProviderResolveErrorMessage({
+          lastErrorMessage: builtInProviderErrorMessage,
+          provider: input.provider,
+        }),
       });
     }),
 
@@ -2273,7 +2390,7 @@ export const musicRouter = createTRPCRouter({
         const searchDefinitions = await getConfiguredSearchDefinitions(ctx);
         const sourceProvider = sourceProviderSchema.safeParse(input.provider);
         const qingMusicEnabledProviders = await getEnabledQingMusicProviderIds().catch(
-          () => new Set<QingMusicProviderId>(["kw"]),
+          () => new Set<QingMusicProviderId>(["kw", "kg", "wy", "tx"]),
         );
         const providerEnabled =
           searchDefinitions.some(
@@ -2317,12 +2434,16 @@ export const musicRouter = createTRPCRouter({
             };
           }
 
+          let builtInProviderErrorMessage = "";
           const builtInResult = sourceProvider.success
             ? await resolveBuiltInProviderAudio({
                 provider: sourceProvider.data,
                 quality: input.quality,
                 songId: input.songId,
-              }).catch(() => null)
+              }).catch((error: unknown) => {
+                builtInProviderErrorMessage = toErrorMessage(error);
+                return null;
+              })
             : null;
 
           if (builtInResult) {
@@ -2341,12 +2462,28 @@ export const musicRouter = createTRPCRouter({
               warnings: builtInResult.warnings,
             };
           }
+
+          if (sourceProvider.success) {
+            throw new Error(
+              makeBuiltInProviderResolveErrorMessage({
+                lastErrorMessage: builtInProviderErrorMessage,
+                provider: sourceProvider.data,
+              }),
+            );
+          }
         }
 
-        return await resolveMusicPluginWithFallback({
-          ...input,
-          definitions: searchDefinitions,
-        });
+        if (sourceProvider.success) {
+          throw new Error(
+            makeBuiltInProviderResolveErrorMessage({
+              provider: sourceProvider.data,
+            }),
+          );
+        }
+
+        throw new Error(
+          `Cloudflare production cannot execute ${input.provider} server-side music plugins.`,
+        );
       } catch (error) {
         throw new TRPCError({
           code: "BAD_REQUEST",
