@@ -1083,7 +1083,7 @@ export function StudioExperience() {
           />
         );
       case "music":
-        return musicBoard;
+        return null;
       case "comments":
         return (
           <CommentsBoard
@@ -1170,12 +1170,14 @@ export function StudioExperience() {
           onSignOut={signOut}
           onViewChange={setActiveView}
         >
-          {renderWorkspace()}
+          <>
+            {renderWorkspace()}
+            <div className={activeView === "music" ? "block" : "hidden"}>
+              {musicBoard}
+            </div>
+          </>
         </StudioShell>
       )}
-      {inviteVerified && session.data?.user && activeView !== "music"
-        ? musicBoard
-        : null}
     </main>
   );
 }
