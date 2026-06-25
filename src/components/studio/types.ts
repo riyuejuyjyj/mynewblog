@@ -138,6 +138,15 @@ export type StudioMusicPlaylist = {
   updatedAt: string;
 };
 
+export type StudioMusicPlaylistImportResult = {
+  importedCount: number;
+  playlist: StudioMusicPlaylist;
+  provider: "tx";
+  skippedCount: number;
+  sourcePlaylistId: string;
+  totalCount: number;
+};
+
 export type StudioMusicDownload = StudioMusicLibraryItem & {
   audioExists: boolean | null;
   audioObjectKey: string;

@@ -65,6 +65,7 @@ const MAX_AUDIO_BYTES = 80 * 1024 * 1024;
 const QING_MUSIC_RESOLVE_TIMEOUT_MS = 12_000;
 const QING_MUSIC_RESOLVE_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+const QQ_MUSIC_PLAYLIST_IMPORT_LIMIT = 2000;
 const CHANGQING_MANIFEST_URL = "https://13413.kstore.vip/lxmusic/changqing.json";
 const CHANGQING_SOURCE_NAME = "长青 SVIP 音源";
 const CHANGQING_SOURCE_PATH =
@@ -99,6 +100,7 @@ const musicLibraryItemInput = z.object({
   title: z.string().min(1).max(180),
   trackId: z.string().max(120).optional(),
 });
+type MusicLibraryItemInput = z.infer<typeof musicLibraryItemInput>;
 
 const musicDownloadInput = musicLibraryItemInput.extend({
   candidate: z
@@ -807,6 +809,28 @@ function getRecordText(record: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function getRecordValueText(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+
+  return "";
+}
+
+function getRecordNumber(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return 0;
+}
+
 function getNestedRecord(
   record: Record<string, unknown>,
   key: string,
@@ -1000,6 +1024,201 @@ async function fetchJsonWithTimeout(
   } finally {
     clearTimeout(timer);
   }
+}
+
+function normalizeExternalPlaylistInput(value: string) {
+  return value.trim().replace(/[，。,\s]+$/u, "").trim();
+}
+
+function normalizeExternalHttpUrl(value: string) {
+  let normalized = value.trim();
+
+  if (!normalized) return "";
+  if (normalized.startsWith("//")) normalized = `https:${normalized}`;
+  if (normalized.startsWith("http://")) {
+    normalized = normalized.replace(/^http:\/\//i, "https://");
+  }
+
+  try {
+    const url = new URL(normalized);
+
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.toString()
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function isQqMusicHost(hostname: string) {
+  const normalized = hostname.toLowerCase();
+
+  return normalized === "y.qq.com" || normalized.endsWith(".y.qq.com");
+}
+
+function extractQqMusicPlaylistId(value: string) {
+  const normalized = normalizeExternalPlaylistInput(value);
+
+  if (/^\d{4,}$/.test(normalized)) return normalized;
+
+  try {
+    const url = new URL(normalized);
+
+    if (!isQqMusicHost(url.hostname)) {
+      throw new Error("unsupported host");
+    }
+
+    const queryId =
+      url.searchParams.get("id") ?? url.searchParams.get("disstid") ?? "";
+    const pathId =
+      url.pathname.match(/\/playlist\/(\d+)/i)?.[1] ??
+      url.pathname.match(/\/(\d+)(?:\.html)?$/i)?.[1] ??
+      "";
+    const playlistId = (queryId || pathId).trim();
+
+    if (/^\d{4,}$/.test(playlistId)) return playlistId;
+  } catch {
+    // Fall through to the uniform BAD_REQUEST below.
+  }
+
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message: "Please paste a valid QQ Music playlist URL or numeric playlist id.",
+  });
+}
+
+function joinQqSingerNames(value: unknown) {
+  if (!Array.isArray(value)) return "";
+
+  return value
+    .map((item) => {
+      const record = asRecord(item);
+
+      return record
+        ? getRecordText(record, "name") || getRecordText(record, "title")
+        : "";
+    })
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function trimMusicField(value: string, fallback: string, maxLength: number) {
+  const trimmed = value.trim() || fallback;
+
+  return trimmed.slice(0, maxLength);
+}
+
+function toQqMusicPlaylistItem(
+  value: unknown,
+  playlistCoverUrl: string,
+): MusicLibraryItemInput | null {
+  const record = asRecord(value);
+
+  if (!record) return null;
+
+  const sourceSongId =
+    getRecordText(record, "mid") ||
+    getRecordText(record, "songmid") ||
+    getRecordValueText(record, "id");
+  const title = getRecordText(record, "title") || getRecordText(record, "name");
+
+  if (!sourceSongId || !title) return null;
+
+  const album = getNestedRecord(record, "album");
+  const albumName = album
+    ? getRecordText(album, "name") || getRecordText(album, "title")
+    : "";
+  const albumMid = album
+    ? (getRecordText(album, "mid") || getRecordText(album, "pmid")).replace(
+        /_\d+$/,
+        "",
+      )
+    : "";
+  const coverUrl = albumMid
+    ? `https://y.qq.com/music/photo_new/T002R300x300M000${albumMid}.jpg?max_age=2592000`
+    : playlistCoverUrl;
+
+  return {
+    album: trimMusicField(albumName, "", 180),
+    artist: trimMusicField(
+      joinQqSingerNames(record.singer),
+      "Unknown Artist",
+      180,
+    ),
+    audioUrl: "",
+    coverUrl: normalizeExternalHttpUrl(coverUrl),
+    itemKey: `candidate:tx:${sourceSongId}`,
+    itemKind: "candidate",
+    lyric: "",
+    provider: "tx",
+    quality: "320k",
+    sourceSongId: trimMusicField(sourceSongId, "", 180),
+    title: trimMusicField(title, "Untitled", 180),
+  };
+}
+
+async function fetchQqMusicPlaylist(input: {
+  limit: number;
+  playlistId: string;
+}) {
+  const url = new URL("https://c.y.qq.com/v8/fcg-bin/fcg_v8_playlist_cp.fcg");
+
+  url.searchParams.set("id", input.playlistId);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("newsong", "1");
+  url.searchParams.set("platform", "jqspaframe.json");
+
+  const payload = await fetchJsonWithTimeout(
+    url,
+    {
+      headers: {
+        accept: "application/json,text/plain,*/*",
+        origin: "https://y.qq.com",
+        referer: `https://y.qq.com/n/yqq/playlist/${input.playlistId}.html`,
+        "user-agent": QING_MUSIC_RESOLVE_USER_AGENT,
+      },
+    },
+    "QQ Music playlist import",
+  );
+  const root = asRecord(payload);
+  const code = root ? getRecordNumber(root, "code") : -1;
+  const data = root ? getNestedRecord(root, "data") : null;
+  const cdlist = data && Array.isArray(data.cdlist) ? data.cdlist : [];
+  const playlist = asRecord(cdlist[0]);
+
+  if (!root || code !== 0 || !playlist) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "QQ Music playlist could not be read or is private.",
+    });
+  }
+
+  const playlistCoverUrl = normalizeExternalHttpUrl(
+    getRecordText(playlist, "logo") ||
+      getRecordText(playlist, "dir_pic_url2") ||
+      getRecordText(playlist, "ifpicurl"),
+  );
+  const rawItems = Array.isArray(playlist.songlist) ? playlist.songlist : [];
+  const items = rawItems
+    .map((item) => toQqMusicPlaylistItem(item, playlistCoverUrl))
+    .filter((item): item is MusicLibraryItemInput => Boolean(item))
+    .slice(0, input.limit);
+
+  return {
+    coverUrl: playlistCoverUrl,
+    description: getRecordText(playlist, "desc"),
+    items,
+    name: trimMusicField(
+      getRecordText(playlist, "dissname"),
+      `QQ Music Playlist ${input.playlistId}`,
+      80,
+    ),
+    sourcePlaylistId: input.playlistId,
+    totalCount:
+      getRecordNumber(playlist, "songnum") ||
+      getRecordNumber(playlist, "cur_song_num") ||
+      rawItems.length,
+  };
 }
 
 function toQingMusicResolveLevel(quality: z.infer<typeof qualitySchema>) {
@@ -1573,6 +1792,105 @@ export const musicRouter = createTRPCRouter({
         .returning();
 
       return toPublicPlaylist(created, []);
+    }),
+
+  importExternalPlaylist: studioProcedure
+    .input(
+      z.object({
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(QQ_MUSIC_PLAYLIST_IMPORT_LIMIT)
+          .default(QQ_MUSIC_PLAYLIST_IMPORT_LIMIT),
+        url: z.string().min(1).max(1200),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      assertDatabase();
+
+      const sourcePlaylistId = extractQqMusicPlaylistId(input.url);
+      const importedPlaylist = await fetchQqMusicPlaylist({
+        limit: input.limit,
+        playlistId: sourcePlaylistId,
+      });
+      const uniqueItems = Array.from(
+        new Map(
+          importedPlaylist.items.map((item) => [item.itemKey, item]),
+        ).values(),
+      );
+      const [createdPlaylist] = await ctx.db
+        .insert(musicPlaylists)
+        .values({
+          coverUrl:
+            importedPlaylist.coverUrl || uniqueItems[0]?.coverUrl || "",
+          createdBy: ctx.session.user.id,
+          description: trimMusicField(
+            [
+              `Imported from QQ Music playlist ${sourcePlaylistId}.`,
+              importedPlaylist.description,
+            ]
+              .filter(Boolean)
+              .join(" "),
+            "",
+            500,
+          ),
+          name: importedPlaylist.name,
+        })
+        .returning();
+
+      if (uniqueItems.length > 0) {
+        const values = uniqueItems.map((item, index) =>
+          musicPlaylistItemValues(createdPlaylist.id, item, index),
+        );
+
+        await ctx.db
+          .insert(musicPlaylistItems)
+          .values(values)
+          .onConflictDoUpdate({
+            target: [
+              musicPlaylistItems.playlistId,
+              musicPlaylistItems.itemKey,
+            ],
+            set: {
+              album: sql`excluded.album`,
+              artist: sql`excluded.artist`,
+              audioUrl: sql`excluded.audio_url`,
+              coverUrl: sql`excluded.cover_url`,
+              itemKind: sql`excluded.item_kind`,
+              lyric: sql`excluded.lyric`,
+              provider: sql`excluded.provider`,
+              quality: sql`excluded.quality`,
+              sortOrder: sql`excluded.sort_order`,
+              sourceSongId: sql`excluded.source_song_id`,
+              title: sql`excluded.title`,
+              trackId: sql`excluded.track_id`,
+            },
+          });
+      }
+
+      const items = await ctx.db
+        .select()
+        .from(musicPlaylistItems)
+        .where(eq(musicPlaylistItems.playlistId, createdPlaylist.id))
+        .orderBy(
+          asc(musicPlaylistItems.sortOrder),
+          desc(musicPlaylistItems.createdAt),
+        );
+      const [playlist] = await ctx.db
+        .select()
+        .from(musicPlaylists)
+        .where(eq(musicPlaylists.id, createdPlaylist.id))
+        .limit(1);
+
+      return {
+        importedCount: items.length,
+        playlist: toPublicPlaylist(playlist ?? createdPlaylist, items),
+        provider: "tx" as const,
+        skippedCount: Math.max(0, importedPlaylist.totalCount - items.length),
+        sourcePlaylistId,
+        totalCount: importedPlaylist.totalCount,
+      };
     }),
 
   updatePlaylist: studioProcedure

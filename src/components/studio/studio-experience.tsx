@@ -19,6 +19,7 @@ import type {
   StudioMusicFavorite,
   StudioMusicLibraryItem,
   StudioMusicPlaylist,
+  StudioMusicPlaylistImportResult,
   StudioMusicPlayHistory,
   StudioPrepareMusicDownloadInput,
   StudioPrepareMusicDownloadResult,
@@ -274,6 +275,12 @@ export function StudioExperience() {
       await utils.music.playlists.invalidate();
     },
   });
+  const importExternalMusicPlaylist =
+    trpc.music.importExternalPlaylist.useMutation({
+      onSuccess: async () => {
+        await utils.music.playlists.invalidate();
+      },
+    });
   const updateMusicPlaylist = trpc.music.updatePlaylist.useMutation({
     onSuccess: async () => {
       await utils.music.playlists.invalidate();
@@ -878,6 +885,21 @@ export function StudioExperience() {
     );
   }
 
+  async function importExternalPlaylist(
+    url: string,
+  ): Promise<StudioMusicPlaylistImportResult> {
+    const result = await importExternalMusicPlaylist.mutateAsync({ url });
+
+    setOperations((current) =>
+      [
+        `Import QQ playlist ${result.sourcePlaylistId}: ${result.importedCount}/${result.totalCount}`,
+        ...current,
+      ].slice(0, 6),
+    );
+
+    return result as StudioMusicPlaylistImportResult;
+  }
+
   async function deletePlaylist(playlist: StudioMusicPlaylist) {
     await deleteMusicPlaylist.mutateAsync({ id: playlist.id });
 
@@ -964,6 +986,7 @@ export function StudioExperience() {
       isLoading={musicTracks.isLoading}
       isResolving={resolveTrack.isPending || resolvePluginTrack.isPending}
       isSaving={upsertTrack.isPending}
+      isPlaylistImporting={importExternalMusicPlaylist.isPending}
       isSourceImporting={importChangqingSource.isPending}
       isSearchSourceUpdating={
         importDefaultSearchSources.isPending ||
@@ -987,6 +1010,7 @@ export function StudioExperience() {
       onAddPlaylistItem={addPlaylistItem}
       onCheckChangqingVersion={checkChangqingMusicVersion}
       onCreatePlaylist={createPlaylist}
+      onImportExternalPlaylist={importExternalPlaylist}
       onImportDefaultSearchSources={importDefaultMusicSearchSources}
       onImportChangqingSource={importChangqingMusicSource}
       onPluginResolveMusic={resolvePluginMusic}

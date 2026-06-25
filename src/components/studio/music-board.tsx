@@ -53,6 +53,7 @@ import type {
   StudioMusicLibraryItem,
   StudioMusicPlaybackMode,
   StudioMusicPlaylist,
+  StudioMusicPlaylistImportResult,
   StudioMusicPlaylistItem,
   StudioMusicPlayHistory,
   StudioMusicQueueItem,
@@ -80,6 +81,7 @@ type MusicBoardProps = {
   isLoading: boolean;
   isResolving: boolean;
   isSaving: boolean;
+  isPlaylistImporting: boolean;
   isSourceImporting: boolean;
   isSourceUpdating: boolean;
   isSearchSourceUpdating: boolean;
@@ -116,6 +118,9 @@ type MusicBoardProps = {
     itemIds: string[],
   ) => Promise<void>;
   onCheckChangqingVersion: () => Promise<StudioMusicSourceVersionStatus>;
+  onImportExternalPlaylist: (
+    url: string,
+  ) => Promise<StudioMusicPlaylistImportResult>;
   onImportDefaultSearchSources: () => Promise<void>;
   onImportChangqingSource: () => Promise<void>;
   onPluginResolveMusic: (input: StudioResolvePluginMusicInput) => Promise<StudioResolvedMusicUrl>;
@@ -908,6 +913,7 @@ export function MusicBoard({
   isLoading,
   isResolving,
   isSaving,
+  isPlaylistImporting,
   isSourceImporting,
   isSourceUpdating,
   isSearchSourceUpdating,
@@ -928,6 +934,7 @@ export function MusicBoard({
   onDeletePlaylist,
   onCheckChangqingVersion,
   onCreatePlaylist,
+  onImportExternalPlaylist,
   onUpdatePlaylist,
   onReorderPlaylistItems,
   onImportDefaultSearchSources,
@@ -2960,6 +2967,28 @@ export function MusicBoard({
     }
   }
 
+  async function importExternalPlaylistFromUrl(
+    url: string,
+  ): Promise<StudioMusicPlaylistImportResult> {
+    setPlayError("");
+    setDownloadMessage("Importing QQ playlist...");
+
+    try {
+      const result = await onImportExternalPlaylist(url);
+
+      setDownloadMessage(
+        `Imported QQ playlist ${result.playlist.name}: ${result.importedCount}/${result.totalCount} songs.`,
+      );
+
+      return result;
+    } catch (error) {
+      setPlayError(
+        error instanceof Error ? error.message : "External playlist import failed.",
+      );
+      throw error;
+    }
+  }
+
   async function updatePlaylist(
     playlist: StudioMusicPlaylist,
     patch: Partial<
@@ -3949,6 +3978,7 @@ export function MusicBoard({
               downloadingPlaylistId={downloadingPlaylistId}
               downloadsByItemKey={downloadsByItemKey}
               isBatching={playlistBatching}
+              isImportingExternalPlaylist={isPlaylistImporting}
               likedKeys={likedKeys}
               playlists={playlists}
               onAddCurrent={(playlistId) => void addCurrentToPlaylist(playlistId)}
@@ -3962,6 +3992,7 @@ export function MusicBoard({
                 downloadPlaylistItemsToR2(playlist, items)
               }
               onDownloadPlaylist={(playlist) => void downloadPlaylistToR2(playlist)}
+              onImportExternalPlaylist={importExternalPlaylistFromUrl}
               onLike={(item) => void toggleLiked(item)}
               onPlayItem={playPlaylistItem}
               onPlayPlaylist={playPlaylist}

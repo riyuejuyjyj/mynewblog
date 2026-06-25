@@ -13,6 +13,7 @@ import {
   Edit3,
   Filter,
   FolderPlus,
+  Link2,
   ListPlus,
   Play,
   Plus,
@@ -29,6 +30,7 @@ import type {
   StudioMusicItemProvider,
   StudioMusicLibraryItem,
   StudioMusicPlaylist,
+  StudioMusicPlaylistImportResult,
   StudioMusicPlaylistItem,
 } from "@/components/studio/types";
 import { Button } from "@/components/ui/button";
@@ -53,6 +55,9 @@ type MusicPlaylistBoardProps = {
     items: StudioMusicPlaylistItem[],
   ) => Promise<void>;
   onCreatePlaylist: (name: string) => void;
+  onImportExternalPlaylist: (
+    url: string,
+  ) => Promise<StudioMusicPlaylistImportResult>;
   onDeletePlaylist: (playlist: StudioMusicPlaylist) => void;
   onLike: (item: StudioMusicLibraryItem) => void;
   onPlayItem: (
@@ -84,6 +89,7 @@ type MusicPlaylistBoardProps = {
   ) => void;
   onUploadCover: (file: File) => Promise<string | null>;
   isBatching?: boolean;
+  isImportingExternalPlaylist?: boolean;
 };
 
 const fallbackCover =
@@ -152,6 +158,7 @@ export function MusicPlaylistBoard({
   onDownloadItems,
   onDownloadPlaylist,
   onCreatePlaylist,
+  onImportExternalPlaylist,
   onDeletePlaylist,
   onLike,
   onPlayItem,
@@ -163,6 +170,7 @@ export function MusicPlaylistBoard({
   onUpdatePlaylist,
   onUploadCover,
   isBatching = false,
+  isImportingExternalPlaylist = false,
 }: MusicPlaylistBoardProps) {
   const [selectedId, setSelectedId] = useState(playlists[0]?.id ?? "");
   const [editingId, setEditingId] = useState("");
@@ -172,6 +180,7 @@ export function MusicPlaylistBoard({
   const [draggingItemId, setDraggingItemId] = useState("");
   const [uploadingCover, setUploadingCover] = useState(false);
   const [newName, setNewName] = useState("");
+  const [externalPlaylistUrl, setExternalPlaylistUrl] = useState("");
   const [itemSearchText, setItemSearchText] = useState("");
   const [providerFilter, setProviderFilter] =
     useState<StudioMusicItemProvider | "all">("all");
@@ -266,6 +275,23 @@ export function MusicPlaylistBoard({
 
     onCreatePlaylist(name);
     setNewName("");
+  }
+
+  async function importExternalPlaylist() {
+    const url = externalPlaylistUrl.trim();
+
+    if (!url || isImportingExternalPlaylist) return;
+
+    try {
+      const result = await onImportExternalPlaylist(url);
+
+      setSelectedId(result.playlist.id);
+      setSelectedItemIds(new Set());
+      setBatchTargetPlaylistId("");
+      setExternalPlaylistUrl("");
+    } catch {
+      // The parent board owns the visible error state.
+    }
   }
 
   function selectPlaylist(playlistId: string) {
@@ -420,6 +446,44 @@ export function MusicPlaylistBoard({
             <Plus className="size-4" />
             创建
           </Button>
+        </div>
+      </div>
+
+      <div className="mb-6 rounded-3xl border border-emerald-200/70 bg-emerald-50/60 p-4 dark:border-emerald-300/20 dark:bg-emerald-400/10">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-200">
+              External playlist
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-300">
+              Paste a QQ Music playlist share URL. Imported QQ items keep their
+              source identity; playback will still fall back to kw/kg/wy when
+              QQ streaming is unavailable.
+            </p>
+          </div>
+          <div className="flex min-w-[280px] flex-1 gap-2">
+            <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl border border-emerald-200 bg-white px-4 text-slate-500 dark:border-emerald-300/20 dark:bg-slate-950/50 dark:text-slate-300">
+              <Link2 className="size-4" />
+              <input
+                className="min-w-0 flex-1 bg-transparent text-sm font-bold outline-none"
+                onChange={(event) => setExternalPlaylistUrl(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void importExternalPlaylist();
+                }}
+                placeholder="https://i2.y.qq.com/...playlist.html?id=..."
+                value={externalPlaylistUrl}
+              />
+            </label>
+            <Button
+              disabled={!externalPlaylistUrl.trim() || isImportingExternalPlaylist}
+              type="button"
+              variant="soft"
+              onClick={() => void importExternalPlaylist()}
+            >
+              <ListPlus className="size-4" />
+              {isImportingExternalPlaylist ? "Importing" : "Import"}
+            </Button>
+          </div>
         </div>
       </div>
 
