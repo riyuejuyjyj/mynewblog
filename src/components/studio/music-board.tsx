@@ -3730,41 +3730,37 @@ export function MusicBoard({
     </AnimatePresence>
   );
 
-  if (mode === "background") {
-    return (
-      <>
-        {audioNode}
-        <MusicBackgroundPlayer
-          currentCandidate={safeSelectedCandidate}
-          currentTime={currentTime}
-          currentTrack={currentTrack}
-          duration={duration}
-          isPlaying={isPlaying}
-          isResolving={isResolving || Boolean(resolvingTrackId)}
-          progress={progress}
-          volume={volume}
-          onDownload={downloadCurrent}
-          onNext={nextTrack}
-          onOpenImmersive={() => setImmersiveOpen(true)}
-          onPrevious={previousTrack}
-          onSeek={handleSeek}
-          onTogglePlay={togglePlay}
-          onVolumeChange={changeVolume}
-        />
-        {immersivePlayer}
-      </>
-    );
-  }
-
   return (
-    <motion.section
-      animate={{ opacity: 1, y: 0 }}
-      className="studio-panel flex min-h-[780px] overflow-hidden bg-slate-50/90 p-0 text-slate-950 dark:bg-slate-950/70 dark:text-white"
-      initial={{ opacity: 0, y: 18 }}
-      transition={{ duration: 0.45 }}
-    >
+    <>
       {audioNode}
-
+      {mode === "background" ? (
+        <>
+          <MusicBackgroundPlayer
+            currentCandidate={safeSelectedCandidate}
+            currentTime={currentTime}
+            currentTrack={currentTrack}
+            duration={duration}
+            isPlaying={isPlaying}
+            isResolving={isResolving || Boolean(resolvingTrackId)}
+            progress={progress}
+            volume={volume}
+            onDownload={downloadCurrent}
+            onNext={nextTrack}
+            onOpenImmersive={() => setImmersiveOpen(true)}
+            onPrevious={previousTrack}
+            onSeek={handleSeek}
+            onTogglePlay={togglePlay}
+            onVolumeChange={changeVolume}
+          />
+          {immersivePlayer}
+        </>
+      ) : (
+        <motion.section
+          animate={{ opacity: 1, y: 0 }}
+          className="studio-panel flex min-h-[780px] overflow-hidden bg-slate-50/90 p-0 text-slate-950 dark:bg-slate-950/70 dark:text-white"
+          initial={{ opacity: 0, y: 18 }}
+          transition={{ duration: 0.45 }}
+        >
       <MusicStudioSidebar
         activeView={sidebarView}
         tracks={tracks}
@@ -4097,6 +4093,8 @@ export function MusicBoard({
       />
 
       {immersivePlayer}
-    </motion.section>
+        </motion.section>
+      )}
+    </>
   );
 }

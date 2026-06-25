@@ -1171,10 +1171,10 @@ export function StudioExperience() {
           onViewChange={setActiveView}
         >
           <>
-            {renderWorkspace()}
-            <div className={activeView === "music" ? "block" : "hidden"}>
-              {musicBoard}
+            <div className={activeView === "music" ? "hidden" : "contents"}>
+              {renderWorkspace()}
             </div>
+            {musicBoard}
           </>
         </StudioShell>
       )}
