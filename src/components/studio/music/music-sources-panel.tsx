@@ -4,6 +4,7 @@ import { Cloud, Download, HardDriveDownload, Plus, Search } from "lucide-react";
 
 import type {
   StudioQingMusicLevel,
+  StudioQingMusicLineId,
   StudioQingMusicManifestStatus,
   StudioMusicSearchSource,
   StudioMusicSearchSourceTestResult,
@@ -92,12 +93,27 @@ function shouldCommitText(nextValue: string, currentValue: string) {
 const qingMusicLevelLabels: Record<StudioQingMusicLevel, string> = {
   atmos: "Atmos",
   atmos_plus: "Atmos+",
+  bili192: "192k",
   clear: "臻品",
   exhigh: "320k",
   hires: "Hi-Res",
+  jyeffect: "高清臻音",
+  jymaster: "超清母带",
   lossless: "无损",
   master: "母带",
+  sky: "沉浸环绕",
   standard: "标准",
+  sur: "环绕声",
+};
+
+const qingMusicLineLabels: Record<StudioQingMusicLineId, string> = {
+  bili: "Bilibili",
+  kg: "酷狗",
+  kw: "酷我",
+  mg: "咪咕",
+  qs: "汽水",
+  tx: "QQ",
+  wy: "网易云",
 };
 
 function getQingMusicQualityText(levels: StudioQingMusicLevel[]) {
@@ -202,7 +218,7 @@ export function MusicSourcesPanel({
   const testResults = Object.values(sourceTestResults);
   const qingMusicLines = qingMusicStatus?.lines ?? [];
   const enabledQingMusicLines = qingMusicLines.filter((line) => line.enabled);
-  const searchableQingMusicProviderSet = new Set(
+  const searchableQingMusicProviderSet = new Set<string>(
     qingMusicStatus?.searchableProviderIds ?? [],
   );
   const searchableQingMusicLines = qingMusicLines.filter((line) =>
@@ -313,7 +329,8 @@ export function MusicSourcesPanel({
       <div className="mb-6 rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/6">
         <div className="flex flex-wrap items-center gap-3">
           <Badge className="border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-300/30 dark:bg-indigo-400/12 dark:text-indigo-100">
-            QingMusic 在线线路
+            {qingMusicStatus?.name || "QingMusic 在线线路"}
+            {qingMusicStatus?.version ? ` v${qingMusicStatus.version}` : ""}
           </Badge>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-black text-slate-950 dark:text-white">
@@ -322,9 +339,20 @@ export function MusicSourcesPanel({
                 : "等待远端线路清单"}
             </p>
             <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-300">
-              下载缓存写入 R2；生产播放优先 R2，未缓存时按在线线路解析。
+              下载缓存写入 R2；生产播放优先 R2，未缓存时按在线线路解析，主源异常自动回退备用源。
             </p>
           </div>
+          {qingMusicStatus && !qingMusicStatus.error ? (
+            <Badge
+              className={
+                qingMusicStatus.usedBackup
+                  ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-300/30 dark:bg-amber-400/12 dark:text-amber-100"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/30 dark:bg-emerald-400/12 dark:text-emerald-100"
+              }
+            >
+              {qingMusicStatus.usedBackup ? "当前命中备用源" : "主源在线"}
+            </Badge>
+          ) : null}
           <Badge className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/30 dark:bg-emerald-400/12 dark:text-emerald-100">
             <HardDriveDownload className="size-3.5" />
             R2 下载缓存
@@ -343,7 +371,18 @@ export function MusicSourcesPanel({
               rel="noreferrer"
               target="_blank"
             >
-              打开清单
+              {qingMusicStatus.usedBackup ? "当前备用清单" : "主源清单"}
+            </a>
+          ) : null}
+          {qingMusicStatus?.backupUrl &&
+          qingMusicStatus.backupUrl !== qingMusicStatus.url ? (
+            <a
+              className="text-xs font-black text-slate-500 underline-offset-4 hover:underline dark:text-slate-300"
+              href={qingMusicStatus.backupUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              备用源
             </a>
           ) : null}
         </div>
@@ -353,7 +392,7 @@ export function MusicSourcesPanel({
             QingMusic 清单读取失败：{qingMusicStatus.error}
           </div>
         ) : qingMusicLines.length > 0 ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {qingMusicLines.map((line) => (
               <div
                 key={line.id}
@@ -370,7 +409,7 @@ export function MusicSourcesPanel({
                         : "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300"
                     }
                   >
-                    {pluginProviderLabels[line.id]}
+                    {qingMusicLineLabels[line.id]}
                   </Badge>
                 </div>
                 <p className="mt-2 text-[11px] font-bold leading-5 text-slate-500 dark:text-slate-300">

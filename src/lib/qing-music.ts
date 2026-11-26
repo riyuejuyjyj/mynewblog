@@ -1,10 +1,17 @@
 export const QING_MUSIC_MANIFEST_URL =
   "https://13413.kstore.vip/QingMusic/music.json";
+export const QING_MUSIC_BACKUP_MANIFEST_URL =
+  "https://musicapi.haitangw.net/music.json";
+export const QING_MUSIC_MANIFEST_URLS = [
+  QING_MUSIC_MANIFEST_URL,
+  QING_MUSIC_BACKUP_MANIFEST_URL,
+] as const;
 
 const QING_MUSIC_FETCH_TIMEOUT_MS = 12_000;
 const QING_MUSIC_SEARCH_TIMEOUT_MS = 10_000;
 
 const qingMusicProviderIds = ["kw", "kg", "wy", "tx", "mg"] as const;
+const qingMusicLineIds = ["kw", "kg", "wy", "tx", "qs", "bili", "mg"] as const;
 const qingMusicLevels = [
   "standard",
   "exhigh",
@@ -14,9 +21,15 @@ const qingMusicLevels = [
   "atmos_plus",
   "master",
   "clear",
+  "sky",
+  "jyeffect",
+  "jymaster",
+  "sur",
+  "bili192",
 ] as const;
 
 export type QingMusicProviderId = (typeof qingMusicProviderIds)[number];
+export type QingMusicLineId = (typeof qingMusicLineIds)[number];
 export type QingMusicLevel = (typeof qingMusicLevels)[number];
 
 export const qingMusicSearchProviderIds = [
@@ -29,19 +42,24 @@ export const qingMusicSearchProviderIds = [
 export type QingMusicLine = {
   detailApi: string;
   enabled: boolean;
-  id: QingMusicProviderId;
+  id: QingMusicLineId;
   levels: QingMusicLevel[];
   name: string;
   searchApi: string;
 };
 
 export type QingMusicManifest = {
+  backupUrl: string;
   checkedAt: string;
+  description: string;
   lines: QingMusicLine[];
+  name: string;
   playableLevelCount: number;
   recommendedProviderIds: QingMusicProviderId[];
   searchableProviderIds: QingMusicProviderId[];
   url: string;
+  usedBackup: boolean;
+  version: string;
 };
 
 export type QingMusicSearchCandidate = {
@@ -87,6 +105,13 @@ function isQingMusicProviderId(value: unknown): value is QingMusicProviderId {
   );
 }
 
+function isQingMusicLineId(value: unknown): value is QingMusicLineId {
+  return (
+    typeof value === "string" &&
+    (qingMusicLineIds as readonly string[]).includes(value)
+  );
+}
+
 function isQingMusicLevel(value: unknown): value is QingMusicLevel {
   return (
     typeof value === "string" &&
@@ -95,7 +120,7 @@ function isQingMusicLevel(value: unknown): value is QingMusicLevel {
 }
 
 function normalizeLine(value: RawQingMusicLine): QingMusicLine | null {
-  if (!isQingMusicProviderId(value.id) || typeof value.name !== "string") {
+  if (!isQingMusicLineId(value.id) || typeof value.name !== "string") {
     return null;
   }
 
@@ -697,13 +722,66 @@ export async function searchQingMusic(input: {
   return roundRobinCandidates(buckets, limit);
 }
 
-export async function fetchQingMusicManifest(): Promise<QingMusicManifest> {
+function extractManifestHeaderTag(headerComment: string, tag: string) {
+  const match = headerComment.match(
+    new RegExp(`@${tag}\\s+([^\\r\\n*]+)`, "i"),
+  );
+
+  return match?.[1]?.trim() ?? "";
+}
+
+function parseQingMusicManifestText(rawText: string): {
+  data: RawQingMusicManifest;
+  description: string;
+  name: string;
+  version: string;
+} {
+  let cursor = rawText.replace(/^\uFEFF/, "").trimStart();
+  let headerComment = "";
+
+  while (cursor.startsWith("/*") || cursor.startsWith("//")) {
+    if (cursor.startsWith("/*")) {
+      const endIndex = cursor.indexOf("*/");
+
+      if (endIndex < 0) {
+        throw new Error("Unterminated comment header in QingMusic manifest.");
+      }
+
+      if (!headerComment) {
+        headerComment = cursor.slice(0, endIndex + 2);
+      }
+
+      cursor = cursor.slice(endIndex + 2).trimStart();
+      continue;
+    }
+
+    const lineEnd = cursor.search(/\r?\n/);
+
+    cursor = lineEnd < 0 ? "" : cursor.slice(lineEnd).trimStart();
+  }
+
+  return {
+    data: JSON.parse(cursor) as RawQingMusicManifest,
+    description: extractManifestHeaderTag(headerComment, "description"),
+    name: extractManifestHeaderTag(headerComment, "name"),
+    version: extractManifestHeaderTag(headerComment, "version"),
+  };
+}
+
+async function fetchQingMusicManifestFromUrl(
+  manifestUrl: string,
+  usedBackup: boolean,
+): Promise<QingMusicManifest> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), QING_MUSIC_FETCH_TIMEOUT_MS);
 
   try {
-    const response = await fetch(QING_MUSIC_MANIFEST_URL, {
+    const response = await fetch(manifestUrl, {
       cache: "no-store",
+      headers: {
+        accept: "application/json,text/plain,*/*",
+        "user-agent": QING_MUSIC_USER_AGENT,
+      },
       signal: controller.signal,
     });
 
@@ -711,13 +789,23 @@ export async function fetchQingMusicManifest(): Promise<QingMusicManifest> {
       throw new Error(`QingMusic manifest request failed with ${response.status}`);
     }
 
-    const data = (await response.json()) as RawQingMusicManifest;
+    const { data, description, name, version } = parseQingMusicManifestText(
+      await response.text(),
+    );
     const rawLines = Array.isArray(data.lines) ? data.lines : [];
     const lines = rawLines
       .map((item) => normalizeLine(item as RawQingMusicLine))
       .filter((line): line is QingMusicLine => Boolean(line));
+
+    if (lines.length === 0) {
+      throw new Error("QingMusic manifest returned no valid lines.");
+    }
+
     const recommendedProviderIds = lines
-      .filter((line) => line.enabled)
+      .filter(
+        (line): line is QingMusicLine & { id: QingMusicProviderId } =>
+          line.enabled && isQingMusicProviderId(line.id),
+      )
       .map((line) => line.id);
     const searchableProviderSet = new Set<QingMusicProviderId>(
       qingMusicSearchProviderIds,
@@ -730,14 +818,37 @@ export async function fetchQingMusicManifest(): Promise<QingMusicManifest> {
     ).size;
 
     return {
+      backupUrl: QING_MUSIC_BACKUP_MANIFEST_URL,
       checkedAt: new Date().toISOString(),
+      description,
       lines,
+      name,
       playableLevelCount,
       recommendedProviderIds,
       searchableProviderIds,
-      url: QING_MUSIC_MANIFEST_URL,
+      url: manifestUrl,
+      usedBackup,
+      version,
     };
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function fetchQingMusicManifest(): Promise<QingMusicManifest> {
+  const errors: string[] = [];
+
+  for (const [index, manifestUrl] of QING_MUSIC_MANIFEST_URLS.entries()) {
+    try {
+      return await fetchQingMusicManifestFromUrl(manifestUrl, index > 0);
+    } catch (error) {
+      const label = index === 0 ? "primary" : "backup";
+      const message =
+        error instanceof Error ? error.message : "QingMusic manifest failed.";
+
+      errors.push(`${label}: ${message}`);
+    }
+  }
+
+  throw new Error(errors.join(" | "));
 }

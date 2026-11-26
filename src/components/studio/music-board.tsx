@@ -1028,8 +1028,8 @@ export function MusicBoard({
     () =>
       qingMusicStatus?.error
         ? []
-        : (qingMusicStatus?.recommendedProviderIds ?? []),
-    [qingMusicStatus?.error, qingMusicStatus?.recommendedProviderIds],
+        : (qingMusicStatus?.searchableProviderIds ?? []),
+    [qingMusicStatus?.error, qingMusicStatus?.searchableProviderIds],
   );
   const enabledSearchProviders = useMemo(
     () =>

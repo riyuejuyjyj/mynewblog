@@ -31,6 +31,7 @@ import {
 import {
   fetchQingMusicManifest,
   getEnabledQingMusicProviderIds,
+  QING_MUSIC_BACKUP_MANIFEST_URL,
   QING_MUSIC_MANIFEST_URL,
   type QingMusicProviderId,
 } from "@/lib/qing-music";
@@ -2373,13 +2374,18 @@ export const musicRouter = createTRPCRouter({
       };
     } catch (error) {
       return {
+        backupUrl: QING_MUSIC_BACKUP_MANIFEST_URL,
         checkedAt: new Date().toISOString(),
+        description: "",
         error: error instanceof Error ? error.message : "QingMusic manifest failed.",
         lines: [],
+        name: "",
         playableLevelCount: 0,
         recommendedProviderIds: [],
         searchableProviderIds: [],
         url: QING_MUSIC_MANIFEST_URL,
+        usedBackup: false,
+        version: "",
       };
     }
   }),

@@ -231,25 +231,37 @@ export type StudioQingMusicLevel =
   | "atmos"
   | "atmos_plus"
   | "master"
-  | "clear";
+  | "clear"
+  | "sky"
+  | "jyeffect"
+  | "jymaster"
+  | "sur"
+  | "bili192";
+
+export type StudioQingMusicLineId = StudioSourceProvider | "qs" | "bili";
 
 export type StudioQingMusicLine = {
   detailApi: string;
   enabled: boolean;
-  id: StudioSourceProvider;
+  id: StudioQingMusicLineId;
   levels: StudioQingMusicLevel[];
   name: string;
   searchApi: string;
 };
 
 export type StudioQingMusicManifestStatus = {
+  backupUrl?: string;
   checkedAt: string;
+  description?: string;
   error: string;
   lines: StudioQingMusicLine[];
+  name?: string;
   playableLevelCount: number;
   recommendedProviderIds: StudioSourceProvider[];
   searchableProviderIds: StudioSourceProvider[];
   url: string;
+  usedBackup?: boolean;
+  version?: string;
 };
 
 export type StudioSourceProvider = "kg" | "tx" | "wy" | "kw" | "mg";
