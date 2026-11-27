@@ -2,8 +2,8 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { Link2 } from "lucide-react";
-import type { ReactNode } from "react";
+import { Check, Copy, Link2, X } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { createMarkdownHeadingId } from "@/lib/markdown";
 import { resolveStorageObjectUrl } from "@/lib/storage-object-url";
@@ -46,7 +46,67 @@ function getParagraphRenderAttrs(format: ParagraphFormat) {
   };
 }
 
-function renderInline(text: string): ReactNode[] {
+function CodeBlock({
+  code,
+  language,
+}: {
+  code: string;
+  language: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Ignore clipboard permission failures gracefully.
+    }
+  }
+
+  return (
+    <div className="my-6 overflow-hidden rounded-2xl border border-slate-800/80 bg-[#111726] text-slate-100 shadow-lg">
+      <div className="flex items-center justify-between border-b border-white/8 bg-white/[0.03] px-4 py-2 font-sans text-xs">
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1.5" aria-hidden="true">
+            <span className="size-2.5 rounded-full bg-rose-400/80" />
+            <span className="size-2.5 rounded-full bg-amber-300/80" />
+            <span className="size-2.5 rounded-full bg-emerald-400/80" />
+          </span>
+          <span className="ml-1 font-mono text-[11px] uppercase tracking-wider text-slate-400">
+            {language || "code"}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => void copyCode()}
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
+        >
+          {copied ? (
+            <>
+              <Check className="size-3 text-emerald-400" />
+              已复制
+            </>
+          ) : (
+            <>
+              <Copy className="size-3" />
+              复制
+            </>
+          )}
+        </button>
+      </div>
+      <pre className="m-0 overflow-x-auto bg-transparent p-4 font-mono text-[13px] leading-6 text-slate-100">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+function renderInline(
+  text: string,
+  onImageClick?: (src: string, alt: string) => void,
+): ReactNode[] {
   const nodes: ReactNode[] = [];
   const pattern =
     /(!\[[^\]]*]\([^)]+\)|\[[^\]]+]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
@@ -63,12 +123,20 @@ function renderInline(text: string): ReactNode[] {
     if (token.startsWith("![")) {
       const parts = token.match(/^!\[([^\]]*)]\(([^)]+)\)$/);
       if (parts) {
+        const resolvedUrl = resolveStorageObjectUrl(parts[2]);
+        const altText = parts[1];
+
         nodes.push(
           <img
             key={`${token}-${index}`}
-            src={resolveStorageObjectUrl(parts[2])}
-            alt={parts[1]}
-            className="my-5 w-full rounded-3xl object-cover shadow-2xl shadow-slate-950/10"
+            src={resolvedUrl}
+            alt={altText}
+            onClick={
+              onImageClick ? () => onImageClick(resolvedUrl, altText) : undefined
+            }
+            className={`my-6 w-full rounded-2xl object-cover shadow-md ${
+              onImageClick ? "cursor-zoom-in transition hover:opacity-95" : ""
+            }`}
           />,
         );
       }
@@ -79,7 +147,7 @@ function renderInline(text: string): ReactNode[] {
           <a
             key={`${token}-${index}`}
             href={parts[2]}
-            className="font-bold text-coral-700 underline decoration-coral-400/50 underline-offset-4 dark:text-coral-200"
+            className="font-semibold text-accent-700 underline decoration-accent-400/55 underline-offset-4 transition hover:text-accent-500 dark:text-accent-200"
           >
             {parts[1]}
           </a>,
@@ -89,7 +157,7 @@ function renderInline(text: string): ReactNode[] {
       nodes.push(
         <code
           key={`${token}-${index}`}
-          className="rounded-lg bg-slate-950/5 px-1.5 py-0.5 font-mono text-[0.88em] text-coral-700 dark:bg-white/10 dark:text-coral-200"
+          className="rounded-md bg-accent-50 px-1.5 py-0.5 font-mono text-[0.86em] text-accent-700 dark:bg-accent-500/15 dark:text-accent-200"
         >
           {token.slice(1, -1)}
         </code>,
@@ -129,7 +197,10 @@ function readList(lines: string[], start: number, ordered: boolean) {
   return { items, nextIndex: index };
 }
 
-function renderMarkdownBlocks(value: string) {
+function renderMarkdownBlocks(
+  value: string,
+  onImageClick?: (src: string, alt: string) => void,
+) {
   const lines = value.split("\n");
   const blocks: ReactNode[] = [];
   let index = 0;
@@ -170,17 +241,11 @@ function renderMarkdownBlocks(value: string) {
       }
 
       blocks.push(
-        <pre
+        <CodeBlock
           key={`code-${index}`}
-          className="my-5 overflow-x-auto rounded-3xl bg-slate-950 p-5 text-sm text-slate-100 shadow-inner"
-        >
-          {language ? (
-            <div className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-coral-200">
-              {language}
-            </div>
-          ) : null}
-          <code>{codeLines.join("\n")}</code>
-        </pre>,
+          code={codeLines.join("\n")}
+          language={language}
+        />,
       );
       pendingParagraphFormat = createDefaultParagraphFormat();
       index += 1;
@@ -197,16 +262,16 @@ function renderMarkdownBlocks(value: string) {
           id={headingId}
           key={`h3-${index}`}
           {...takeParagraphAttrs()}
-          className="group mt-8 flex scroll-mt-28 items-center gap-2 text-2xl font-black tracking-[0]"
+          className="group mt-7 flex scroll-mt-24 items-center gap-2 text-xl font-bold"
         >
           <a
             href={`#${headingId}`}
             aria-label={`跳转到 ${text}`}
-            className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            className="text-accent-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
           >
             <Link2 className="size-4" />
           </a>
-          {renderInline(text)}
+          {renderInline(text, onImageClick)}
         </h3>,
       );
       index += 1;
@@ -223,16 +288,16 @@ function renderMarkdownBlocks(value: string) {
           id={headingId}
           key={`h2-${index}`}
           {...takeParagraphAttrs()}
-          className="group mt-10 flex scroll-mt-28 items-center gap-2 text-3xl font-black tracking-[0]"
+          className="group mt-9 flex scroll-mt-24 items-center gap-2 text-2xl font-bold"
         >
           <a
             href={`#${headingId}`}
             aria-label={`跳转到 ${text}`}
-            className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            className="text-accent-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
           >
             <Link2 className="size-4" />
           </a>
-          {renderInline(text)}
+          {renderInline(text, onImageClick)}
         </h2>,
       );
       index += 1;
@@ -249,16 +314,16 @@ function renderMarkdownBlocks(value: string) {
           id={headingId}
           key={`h1-${index}`}
           {...takeParagraphAttrs()}
-          className="group mt-10 flex scroll-mt-28 items-center gap-2 text-4xl font-black tracking-[0]"
+          className="group mt-9 flex scroll-mt-24 items-center gap-2 text-3xl font-bold"
         >
           <a
             href={`#${headingId}`}
             aria-label={`跳转到 ${text}`}
-            className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            className="text-accent-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
           >
             <Link2 className="size-4" />
           </a>
-          {renderInline(text)}
+          {renderInline(text, onImageClick)}
         </h1>,
       );
       index += 1;
@@ -277,10 +342,12 @@ function renderMarkdownBlocks(value: string) {
         <blockquote
           key={`quote-${index}`}
           {...takeParagraphAttrs()}
-          className="my-5 rounded-r-3xl border-l-4 border-coral-400 bg-coral-100/45 px-5 py-4 italic text-slate-700 dark:bg-coral-400/10 dark:text-slate-200"
+          className="my-5 rounded-r-2xl border-l-4 border-accent-400 bg-accent-50/75 px-5 py-3.5 text-slate-700 dark:bg-accent-500/12 dark:text-slate-200"
         >
           {quoteLines.map((quoteLine, quoteIndex) => (
-            <p key={quoteIndex}>{renderInline(quoteLine)}</p>
+            <p key={quoteIndex} className="my-1.5">
+              {renderInline(quoteLine, onImageClick)}
+            </p>
           ))}
         </blockquote>,
       );
@@ -296,7 +363,7 @@ function renderMarkdownBlocks(value: string) {
           className="my-5 list-disc space-y-2 pl-6"
         >
           {list.items.map((item, itemIndex) => (
-            <li key={itemIndex}>{renderInline(item)}</li>
+            <li key={itemIndex}>{renderInline(item, onImageClick)}</li>
           ))}
         </ul>,
       );
@@ -313,7 +380,7 @@ function renderMarkdownBlocks(value: string) {
           className="my-5 list-decimal space-y-2 pl-6"
         >
           {list.items.map((item, itemIndex) => (
-            <li key={itemIndex}>{renderInline(item)}</li>
+            <li key={itemIndex}>{renderInline(item, onImageClick)}</li>
           ))}
         </ol>,
       );
@@ -345,9 +412,9 @@ function renderMarkdownBlocks(value: string) {
       <p
         key={`p-${index}`}
         {...takeParagraphAttrs()}
-        className="my-5 text-[1.02rem] leading-8"
+        className="my-4 text-[1.03rem] leading-[1.95]"
       >
-        {renderInline(paragraphLines.join(" "))}
+        {renderInline(paragraphLines.join(" "), onImageClick)}
       </p>,
     );
   }
@@ -355,16 +422,83 @@ function renderMarkdownBlocks(value: string) {
   return blocks;
 }
 
-export function MarkdownPreview({ value }: { value: string }) {
-  const blocks = renderMarkdownBlocks(value);
+export function MarkdownPreview({
+  interactiveImages = false,
+  value,
+}: {
+  interactiveImages?: boolean;
+  value: string;
+}) {
+  const [lightboxImage, setLightboxImage] = useState<{
+    alt: string;
+    src: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!lightboxImage) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setLightboxImage(null);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [lightboxImage]);
+
+  const blocks = renderMarkdownBlocks(
+    value,
+    interactiveImages
+      ? (src, alt) => setLightboxImage({ alt, src })
+      : undefined,
+  );
 
   if (blocks.length === 0) {
     return (
-      <p className="rounded-3xl border border-dashed border-slate-300 p-8 text-center text-sm font-bold text-slate-400 dark:border-white/15">
+      <p className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm font-medium text-slate-400 dark:border-white/15">
         预览会在这里出现。
       </p>
     );
   }
 
-  return <div className="studio-markdown-preview">{blocks}</div>;
+  return (
+    <>
+      <div className="studio-markdown-preview">{blocks}</div>
+
+      {lightboxImage ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={lightboxImage.alt || "图片预览"}
+          onClick={() => setLightboxImage(null)}
+          className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/82 p-4 backdrop-blur-md"
+        >
+          <button
+            type="button"
+            aria-label="关闭预览"
+            onClick={() => setLightboxImage(null)}
+            className="absolute right-5 top-5 inline-flex size-10 items-center justify-center rounded-full border border-white/20 bg-white/12 text-white transition hover:bg-white/25"
+          >
+            <X className="size-5" />
+          </button>
+          <figure
+            className="max-h-[88vh] max-w-5xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <img
+              src={lightboxImage.src}
+              alt={lightboxImage.alt}
+              className="max-h-[82vh] max-w-full rounded-2xl object-contain shadow-2xl"
+            />
+            {lightboxImage.alt ? (
+              <figcaption className="mt-3 text-center text-xs text-white/80">
+                {lightboxImage.alt}
+              </figcaption>
+            ) : null}
+          </figure>
+        </div>
+      ) : null}
+    </>
+  );
 }

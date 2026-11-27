@@ -5,23 +5,23 @@ import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-semibold tracking-[0] transition duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-full text-sm font-semibold transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       variant: {
         default:
-          "bg-slate-950 text-white shadow-lg shadow-slate-950/20 hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200",
+          "bg-accent-500 text-white shadow-md shadow-accent-500/25 hover:bg-accent-600 dark:bg-accent-500 dark:text-white dark:hover:bg-accent-400",
         glass:
-          "border border-white/45 bg-white/35 text-slate-900 shadow-lg shadow-slate-900/10 backdrop-blur-xl hover:bg-white/55 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20",
+          "border border-slate-200/80 bg-white/80 text-slate-800 shadow-sm backdrop-blur-md hover:border-accent-200 hover:bg-white hover:text-accent-700 dark:border-white/12 dark:bg-white/8 dark:text-slate-100 dark:hover:border-accent-400/40 dark:hover:bg-white/14",
         soft:
-          "bg-coral-100 text-coral-950 hover:bg-coral-200 dark:bg-coral-400/15 dark:text-coral-100 dark:hover:bg-coral-400/25",
+          "bg-accent-100 text-accent-700 hover:bg-accent-200/80 dark:bg-accent-500/18 dark:text-accent-200 dark:hover:bg-accent-500/28",
         ghost:
-          "text-slate-700 hover:bg-white/40 dark:text-slate-200 dark:hover:bg-white/10",
+          "text-slate-600 hover:bg-accent-50 hover:text-accent-700 dark:text-slate-300 dark:hover:bg-white/8 dark:hover:text-white",
       },
       size: {
-        default: "h-11 px-5",
-        sm: "h-9 px-4 text-xs",
-        icon: "size-11 shrink-0",
+        default: "h-10 px-5",
+        sm: "h-9 px-3.5 text-xs",
+        icon: "size-9 shrink-0",
       },
     },
     defaultVariants: {

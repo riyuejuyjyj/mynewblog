@@ -33,18 +33,15 @@ export type BlogComment = {
   createdAt: Date;
 };
 
+import { blogConfig } from "@/config/site";
+
 export const profile = {
-  name: "MyNewBlog",
-  handle: "treasure log",
-  title: "A breathing blog for ideas, experiments, and daily fragments.",
-  bio: "Research thoughts, engineering notes, reading traces, and small scenes from daily life.",
-  avatar:
-    "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=320&q=80",
-  backgroundImages: [
-    "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=80",
-    "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?auto=format&fit=crop&w=1800&q=80",
-    "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1800&q=80",
-  ],
+  name: blogConfig.name,
+  handle: blogConfig.brandSuffix,
+  title: blogConfig.heroQuotes[0],
+  bio: blogConfig.subtitle,
+  avatar: blogConfig.images.avatar,
+  backgroundImages: [blogConfig.images.heroDay, blogConfig.images.heroNight],
 };
 
 export const seedPosts: BlogPostPreview[] = [
@@ -56,8 +53,7 @@ export const seedPosts: BlogPostPreview[] = [
       "A place for research notes, code journals, reading sparks, and ordinary fragments to settle before they disappear.",
     content:
       "The first note does not need to prove much. It only has to arrange the desk, the lamp, the paper, and the doorway for the work that follows.",
-    coverImage:
-      "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",
+    coverImage: blogConfig.images.defaultCover,
     category: "Notebook",
     mood: "spark",
     tags: ["Research", "Code", "Life"],
@@ -75,8 +71,7 @@ export const seedPosts: BlogPostPreview[] = [
       "Some ideas should not be compressed into a status update. They need a path, a light, and space to be revised.",
     content:
       "A blog is useful because it allows unfinished thinking. Research questions, engineering choices, and reading traces can start as outlines and grow into clearer notes.",
-    coverImage:
-      "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
+    coverImage: blogConfig.images.heroDay,
     category: "Writing",
     mood: "focus",
     tags: ["Notes", "Reading", "Drafts"],
@@ -94,8 +89,7 @@ export const seedPosts: BlogPostPreview[] = [
       "The public site holds the finished pieces. The private room keeps the drafts, edits, and half-shaped thoughts out of the way.",
     content:
       "A good writing room keeps its tools in the background and leaves attention for words, images, and the moments worth recording.",
-    coverImage:
-      "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80",
+    coverImage: blogConfig.images.heroNight,
     category: "Studio",
     mood: "calm",
     tags: ["Drafts", "Writing", "Quiet"],

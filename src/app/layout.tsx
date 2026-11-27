@@ -1,9 +1,28 @@
 import type { Metadata } from "next";
-import { SplashScreen } from "@/components/splash-screen";
 import { ThemeProvider } from "@/components/theme-provider";
 import { siteConfig } from "@/lib/site-metadata";
 import { TRPCReactProvider } from "@/trpc/provider";
 import "./globals.css";
+
+const themeBootstrapScript = `
+(() => {
+  try {
+    const root = document.documentElement;
+    const storedTheme = localStorage.getItem("mynewblog:theme");
+    const theme = storedTheme === "dark" || storedTheme === "light"
+      ? storedTheme
+      : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    root.classList.toggle("dark", theme === "dark");
+    root.style.colorScheme = theme;
+    const storedAccent = localStorage.getItem("mynewblog:accent");
+    if (storedAccent === "sakura" || storedAccent === "sky" || storedAccent === "wisteria" || storedAccent === "mint") {
+      root.dataset.accent = storedAccent;
+    } else {
+      root.dataset.accent = "sakura";
+    }
+  } catch {}
+})();
+`;
 
 export const metadata: Metadata = {
   applicationName: siteConfig.name,
@@ -62,12 +81,15 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
+      data-accent="sakura"
       suppressHydrationWarning
       className="h-full antialiased"
     >
-      <body className="min-h-full overflow-x-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+      </head>
+      <body className="min-h-full overflow-x-hidden bg-background text-foreground">
         <ThemeProvider>
-          <SplashScreen />
           <TRPCReactProvider>{children}</TRPCReactProvider>
         </ThemeProvider>
       </body>

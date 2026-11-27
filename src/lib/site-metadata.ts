@@ -1,17 +1,12 @@
+import { blogConfig } from "@/config/site";
+
 export const siteConfig = {
-  author: "MyNewBlog",
-  description:
-    "A personal blog for research notes, engineering essays, reading traces, and everyday fragments.",
-  keywords: [
-    "research notes",
-    "engineering essays",
-    "reading notes",
-    "personal blog",
-    "studio",
-  ],
-  locale: "zh_CN",
-  name: "MyNewBlog",
-  url: "https://tong777.ccwu.cc",
+  author: blogConfig.author,
+  description: blogConfig.subtitle,
+  keywords: blogConfig.keywords,
+  locale: blogConfig.locale,
+  name: blogConfig.name,
+  url: blogConfig.url,
 } as const;
 
 export function absoluteSiteUrl(path = "/") {

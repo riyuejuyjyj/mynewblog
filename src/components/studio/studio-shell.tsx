@@ -8,20 +8,21 @@ import {
   GalleryHorizontalEnd,
   Home,
   LogOut,
-  Music2,
   MessageSquareText,
+  Music2,
   PenLine,
   Plus,
   Rocket,
 } from "lucide-react";
-import { motion } from "motion/react";
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import type { StudioStats, StudioView } from "@/components/studio/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { blogConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
-import type { StudioStats, StudioView } from "@/components/studio/types";
 
 type StudioShellProps = {
   activeView: StudioView;
@@ -38,37 +39,37 @@ const navItems = [
   {
     id: "dashboard",
     label: "工作台",
-    description: "概览、队列、状态",
+    description: "概览与动态",
     icon: BarChart3,
   },
   {
     id: "posts",
     label: "文章管理",
-    description: "列表、筛选、编辑",
+    description: "列表与草稿",
     icon: FileText,
   },
   {
     id: "editor",
     label: "写作台",
-    description: "Markdown 编辑",
+    description: "富文本与排版",
     icon: PenLine,
   },
   {
     id: "media",
     label: "媒体库",
-    description: "封面与附件",
+    description: "R2 封面与素材",
     icon: GalleryHorizontalEnd,
   },
   {
     id: "music",
     label: "音乐库",
-    description: "曲库与音源",
+    description: "曲库与在线源",
     icon: Music2,
   },
   {
     id: "comments",
     label: "评论审核",
-    description: "回复与状态",
+    description: "审核与作者回复",
     icon: MessageSquareText,
   },
 ] as const satisfies ReadonlyArray<{
@@ -98,36 +99,28 @@ export function StudioShell({
   ] as const;
 
   return (
-    <section className="relative z-10 mx-auto mt-4 w-full max-w-[1600px] space-y-4 lg:mt-6 lg:grid lg:grid-cols-[280px_1fr] lg:gap-5 lg:space-y-0">
-      <motion.div
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className="studio-panel overflow-hidden p-3 lg:hidden"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-slate-950 text-white dark:bg-white dark:text-slate-950">
-              <CurrentIcon className="size-5" />
-            </div>
+    <section className="relative z-10 mx-auto mt-4 w-full max-w-[1600px] space-y-4 lg:mt-5 lg:grid lg:grid-cols-[256px_minmax(0,1fr)] lg:items-start lg:gap-5 lg:space-y-0">
+      {/* Compact Mobile Console Bar */}
+      <div className="studio-panel overflow-hidden p-3.5 lg:hidden">
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-500 text-white shadow-sm">
+              <CurrentIcon className="size-4" />
+            </span>
             <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase text-slate-400">
-                MyNewBlog Console
+              <p className="text-[11px] font-medium text-slate-400">
+                {userName || "Author"} · Studio
               </p>
-              <h2 className="truncate text-lg font-black tracking-[0]">
+              <h2 className="truncate font-serif text-base font-bold">
                 {current.label}
               </h2>
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <Button type="button" size="icon" title="新建文章" onClick={onNewPost}>
-              <Plus className="size-4" />
-            </Button>
-            <Button asChild type="button" variant="glass" size="icon" title="首页">
-              <Link href="/">
-                <Home className="size-4" />
-              </Link>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button type="button" size="sm" onClick={onNewPost}>
+              <Plus className="size-3.5" />
+              写文章
             </Button>
             <Button
               type="button"
@@ -145,17 +138,19 @@ export function StudioShell({
           {summaryStats.map(([label, value]) => (
             <div
               key={label}
-              className="rounded-2xl border border-white/45 bg-white/35 px-2 py-2 text-center dark:border-white/10 dark:bg-white/10"
+              className="rounded-xl bg-surface-muted/80 px-2 py-2 text-center dark:bg-white/[0.04]"
             >
-              <div className="text-base font-black leading-none">{value}</div>
-              <div className="mt-1 text-[10px] font-bold text-slate-500 dark:text-slate-300">
+              <div className="font-mono text-sm font-bold leading-none">
+                {value}
+              </div>
+              <div className="mt-1 text-[10px] font-medium text-slate-400">
                 {label}
               </div>
             </div>
           ))}
         </div>
 
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
@@ -166,42 +161,38 @@ export function StudioShell({
                 type="button"
                 onClick={() => onViewChange(item.id)}
                 className={cn(
-                  "flex min-w-[74px] shrink-0 flex-col items-center gap-1 rounded-2xl border px-3 py-2 text-xs font-black transition",
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
                   isActive
-                    ? "border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-950/15 dark:border-white dark:bg-white dark:text-slate-950"
-                    : "border-white/45 bg-white/25 text-slate-600 hover:bg-white/50 dark:border-white/10 dark:bg-white/10 dark:text-slate-300",
+                    ? "border-accent-500 bg-accent-500 text-white shadow-sm"
+                    : "border-slate-200/80 bg-surface text-slate-600 hover:border-accent-200 hover:text-accent-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300",
                 )}
               >
-                <Icon className="size-4" />
+                <Icon className="size-3.5" />
                 <span>{item.label}</span>
               </button>
             );
           })}
         </div>
+      </div>
 
-        <div className="mt-2 flex items-center justify-between gap-2 text-[11px] font-bold text-slate-500 dark:text-slate-300">
-          <span>{operations.length} 个待处理</span>
-          <span>Cloudflare ready</span>
-        </div>
-      </motion.div>
-
-      <motion.aside
-        initial={{ opacity: 0, x: -24 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-        className="hidden space-y-4 lg:block"
-      >
-        <div className="studio-panel overflow-hidden p-4">
-          <div className="flex items-center gap-4">
-            <div className="relative grid size-12 place-items-center rounded-2xl bg-slate-950 text-white shadow-2xl shadow-slate-950/20 dark:bg-white dark:text-slate-950">
-              <PenLine className="size-5" />
-              <span className="absolute -right-1 -top-1 size-4 rounded-full border-2 border-white bg-emerald-400 dark:border-slate-950" />
+      {/* Desktop Sticky Sidebar */}
+      <aside className="hidden space-y-4 lg:sticky lg:top-5 lg:block">
+        <div className="studio-panel p-4">
+          <div className="flex items-center gap-3">
+            <div className="relative size-11 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-200 dark:ring-accent-400/35">
+              <Image
+                src={blogConfig.images.avatar}
+                alt={userName || "Author"}
+                fill
+                sizes="44px"
+                className="object-cover"
+              />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase text-coral-700 dark:text-coral-200">
-                Studio Admin
+              <p className="text-[11px] font-semibold text-accent-600 dark:text-accent-300">
+                Creator Studio
               </p>
-              <h1 className="mt-1 truncate text-xl font-black tracking-[0]">
+              <h1 className="truncate font-serif text-base font-bold">
                 {userName || "Author"}
               </h1>
             </div>
@@ -211,10 +202,12 @@ export function StudioShell({
             {summaryStats.map(([label, value]) => (
               <div
                 key={label}
-                className="rounded-2xl border border-white/45 bg-white/35 p-3 dark:border-white/10 dark:bg-white/10"
+                className="rounded-xl bg-surface-muted/80 px-3 py-2.5 dark:bg-white/[0.04]"
               >
-                <div className="text-xl font-black">{value}</div>
-                <div className="mt-1 text-[11px] font-bold text-slate-500 dark:text-slate-300">
+                <div className="font-mono text-lg font-bold leading-tight">
+                  {value}
+                </div>
+                <div className="mt-0.5 text-[11px] font-medium text-slate-400">
                   {label}
                 </div>
               </div>
@@ -222,114 +215,110 @@ export function StudioShell({
           </div>
         </div>
 
-        <div className="studio-panel p-3">
-          <div className="space-y-1.5">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeView === item.id;
+        <nav className="studio-panel space-y-1 p-2.5" aria-label="创作室导航">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeView === item.id;
 
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onViewChange(item.id)}
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onViewChange(item.id)}
+                className={cn(
+                  "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition duration-200",
+                  isActive
+                    ? "bg-accent-500 text-white shadow-sm shadow-accent-500/25"
+                    : "text-slate-600 hover:bg-surface-muted hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/[0.06] dark:hover:text-white",
+                )}
+              >
+                <span
                   className={cn(
-                    "group flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition duration-300",
+                    "grid size-8 shrink-0 place-items-center rounded-lg transition",
                     isActive
-                      ? "bg-slate-950 text-white shadow-xl shadow-slate-950/15 dark:bg-white dark:text-slate-950"
-                      : "text-slate-600 hover:bg-white/50 dark:text-slate-300 dark:hover:bg-white/10",
+                      ? "bg-white/20 text-white"
+                      : "bg-surface-muted text-slate-500 group-hover:text-accent-600 dark:bg-white/[0.06] dark:text-slate-300 dark:group-hover:text-accent-300",
                   )}
                 >
+                  <Icon className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold leading-tight">
+                    {item.label}
+                  </span>
                   <span
                     className={cn(
-                      "grid size-10 shrink-0 place-items-center rounded-xl transition",
+                      "mt-0.5 block truncate text-[11px]",
                       isActive
-                        ? "bg-white/15 dark:bg-slate-950/10"
-                        : "bg-slate-950/5 text-slate-500 group-hover:bg-white/70 dark:bg-white/10 dark:text-slate-300",
+                        ? "text-white/80"
+                        : "text-slate-400 dark:text-slate-500",
                     )}
                   >
-                    <Icon className="size-5" />
+                    {item.description}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-black">{item.label}</span>
-                    <span
-                      className={cn(
-                        "mt-0.5 block truncate text-[11px] font-semibold",
-                        isActive
-                          ? "text-white/70 dark:text-slate-700"
-                          : "text-slate-400 dark:text-slate-500",
-                      )}
-                    >
-                      {item.description}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    className={cn(
-                      "size-4 transition",
-                      isActive ? "opacity-100" : "opacity-0 group-hover:opacity-60",
-                    )}
-                  />
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                </span>
+                <ChevronRight
+                  className={cn(
+                    "size-4 shrink-0 transition",
+                    isActive ? "opacity-100" : "opacity-0 group-hover:opacity-60",
+                  )}
+                />
+              </button>
+            );
+          })}
+        </nav>
 
-        <div className="studio-panel p-4">
+        <div className="studio-panel space-y-2.5 p-3.5">
           <Button type="button" className="w-full" onClick={onNewPost}>
             <Plus className="size-4" />
             新建文章
           </Button>
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <Button asChild type="button" variant="glass" size="sm">
               <Link href="/">
-                <Home className="size-4" />
-                首页
+                <Home className="size-3.5" />
+                前台
               </Link>
             </Button>
             <Button type="button" variant="glass" size="sm" onClick={onSignOut}>
-              <LogOut className="size-4" />
+              <LogOut className="size-3.5" />
               退出
             </Button>
           </div>
         </div>
-      </motion.aside>
+      </aside>
 
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.58, ease: [0.16, 1, 0.3, 1] }}
-        className="min-w-0 space-y-4 lg:space-y-5"
-      >
-        <header className="studio-panel hidden flex-col gap-4 p-4 lg:flex lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="grid size-12 place-items-center rounded-2xl bg-coral-100 text-coral-700 dark:bg-coral-400/15 dark:text-coral-200">
-              <CurrentIcon className="size-6" />
-            </div>
+      {/* Main Content Stage */}
+      <div className="min-w-0 space-y-4">
+        <header className="studio-panel hidden items-center justify-between gap-4 px-5 py-3.5 lg:flex">
+          <div className="flex items-center gap-3.5">
+            <span className="grid size-10 place-items-center rounded-xl bg-accent-100 text-accent-600 dark:bg-accent-500/20 dark:text-accent-200">
+              <CurrentIcon className="size-5" />
+            </span>
             <div>
-              <p className="text-xs font-black uppercase text-slate-400">
-                MyNewBlog Console
+              <p className="text-[11px] font-medium text-slate-400">
+                {blogConfig.brandPrefix} Console · {current.description}
               </p>
-              <h2 className="text-2xl font-black tracking-[0]">
+              <h2 className="font-serif text-xl font-bold leading-tight">
                 {current.label}
               </h2>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className="gap-2">
-              <Bell className="size-3.5" />
-              {operations.length} 个待处理
+            <Badge className="gap-1.5">
+              <Bell className="size-3" />
+              {operations.length} 条记录
             </Badge>
-            <Badge className="gap-2">
-              <Rocket className="size-3.5" />
-              Cloudflare ready
+            <Badge className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/15 dark:text-emerald-200">
+              <Rocket className="size-3" />
+              Cloudflare Ready
             </Badge>
           </div>
         </header>
 
         {children}
-      </motion.div>
+      </div>
     </section>
   );
 }

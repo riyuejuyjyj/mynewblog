@@ -1,10 +1,12 @@
 "use client";
 
-import { type FormEvent } from "react";
 import { KeyRound, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { type FormEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { blogConfig } from "@/config/site";
 
 type StudioGateProps = {
   authEmail: string;
@@ -45,146 +47,179 @@ export function StudioGate({
 }: StudioGateProps) {
   if (inviteChecking) {
     return (
-      <section className="relative z-10 mx-auto mt-6 w-full max-w-xl px-3 sm:mt-10 sm:px-0">
-        <div className="glass-panel p-5 sm:p-8">
+      <section className="mx-auto mt-10 w-full max-w-md px-2">
+        <div className="anime-card p-6 text-center sm:p-8">
           <Badge>Studio Gate</Badge>
-          <h1 className="mt-6 text-2xl font-black leading-tight tracking-[0] sm:mt-8 sm:text-4xl">
-            正在确认后台访问权限
+          <h1 className="mt-4 font-serif text-2xl font-bold">
+            正在确认创作室通行权限
           </h1>
-          <p className="mt-4 text-sm leading-7 text-slate-700 dark:text-slate-200 sm:mt-5 sm:text-base sm:leading-8">
-            正在校验这台设备上的邀请码令牌。
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            正在校验当前设备上的邀请码令牌，请稍候...
           </p>
         </div>
-      </section>
-    );
-  }
-
-  if (!inviteVerified) {
-    return (
-      <section className="relative z-10 mx-auto mt-6 grid w-full max-w-5xl gap-4 px-3 sm:mt-10 sm:px-0 lg:grid-cols-[1fr_380px]">
-        <div className="glass-panel p-5 sm:p-8">
-          <Badge>Private Studio</Badge>
-          <h1 className="mt-6 max-w-2xl text-3xl font-black leading-tight tracking-[0] sm:mt-8 sm:text-5xl">
-            先通过邀请码，再进入后台。
-          </h1>
-          <p className="mt-4 max-w-xl text-sm leading-7 text-slate-700 dark:text-slate-200 sm:mt-5 sm:text-base sm:leading-8">
-            后台接口也会校验邀请码状态。即使绕过页面直接请求 tRPC，
-            没有通过门禁也无法读写文章。
-          </p>
-        </div>
-
-        <form onSubmit={onInviteSubmit} className="glass-panel p-5 sm:p-6">
-          <div className="flex items-center gap-3">
-            <KeyRound className="size-6 text-coral-500" />
-            <div>
-              <p className="text-sm font-bold text-coral-700 dark:text-coral-200">
-                Invite only
-              </p>
-              <h2 className="text-2xl font-black tracking-[0]">后台邀请码</h2>
-            </div>
-          </div>
-
-          <label className="studio-label mt-6 block">
-            Invite code
-            <input
-              value={inviteCode}
-              onChange={(event) => onInviteChange(event.target.value)}
-              required
-              autoComplete="off"
-              placeholder="请输入邀请码"
-              className="studio-input mt-2"
-            />
-          </label>
-
-          {inviteError ? (
-            <p className="mt-4 rounded-2xl bg-coral-100 px-4 py-3 text-sm font-semibold text-coral-950">
-              {inviteError}
-            </p>
-          ) : null}
-
-          <Button className="mt-5 w-full" type="submit">
-            <ShieldCheck className="size-4" />
-            验证邀请码
-          </Button>
-        </form>
       </section>
     );
   }
 
   return (
-    <section className="relative z-10 mx-auto mt-6 grid w-full max-w-5xl gap-4 px-3 sm:mt-10 sm:px-0 lg:grid-cols-[1fr_380px]">
-      <div className="glass-panel p-5 sm:p-8">
-        <Badge>Better Auth</Badge>
-        <h1 className="mt-6 max-w-2xl text-3xl font-black leading-tight tracking-[0] sm:mt-8 sm:text-5xl">
-          打开写作控制台。
-        </h1>
-        <p className="mt-4 max-w-xl text-sm leading-7 text-slate-700 dark:text-slate-200 sm:mt-5 sm:text-base sm:leading-8">
-          登录后可以写文章、管理草稿、准备发布，并继续接入 R2 媒体与评论审核。
-        </p>
-      </div>
+    <section className="mx-auto mt-6 w-full max-w-4xl sm:mt-10">
+      <div className="anime-card grid overflow-hidden lg:grid-cols-[1.05fr_1fr]">
+        {/* Left Anime Desk Illustration Panel */}
+        <div className="relative min-h-[200px] overflow-hidden bg-slate-900 p-6 text-white sm:p-8 lg:min-h-[420px]">
+          <Image
+            src={blogConfig.images.defaultCover}
+            alt="晴空书房创作桌插画"
+            fill
+            priority
+            sizes="(min-width: 1024px) 460px, 100vw"
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/88 via-slate-950/42 to-slate-950/25" />
 
-      <form onSubmit={onAuthSubmit} className="glass-panel p-5 sm:p-6">
-        <div className="flex items-center gap-3">
-          <Lock className="size-6 text-emerald-500" />
-          <div>
-            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-200">
-              {authMode === "signin" ? "Sign in" : "Create account"}
-            </p>
-            <h2 className="text-2xl font-black tracking-[0]">Author access</h2>
+          <div className="relative z-10 flex h-full flex-col justify-between">
+            <div className="flex items-center gap-3">
+              <div className="relative size-11 overflow-hidden rounded-full border-2 border-white/60 shadow">
+                <Image
+                  src={blogConfig.images.avatar}
+                  alt={blogConfig.author}
+                  fill
+                  sizes="44px"
+                  className="object-cover"
+                />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-pink-200">
+                  Private Studio
+                </p>
+                <p className="font-serif text-sm font-bold">
+                  {blogConfig.brandPrefix} {blogConfig.brandConnector} 创作室
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 lg:mt-0">
+              <h1 className="font-serif text-2xl font-bold leading-snug sm:text-3xl">
+                {!inviteVerified
+                  ? "先输入邀请码，推开书房的门。"
+                  : "欢迎回到你的写作书桌。"}
+              </h1>
+              <p className="mt-2.5 text-xs leading-6 text-white/82 sm:text-sm">
+                {!inviteVerified
+                  ? "后台所有读写接口都会校验邀请码与登录态，确保草稿、媒体库与音乐库仅限作者访问。"
+                  : "登录后可撰写与发布文章、管理 Cloudflare R2 媒体、审核回复读者评论与播放云端曲库。"}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="mt-5 space-y-3 sm:mt-6">
-          {authMode === "signup" ? (
-            <input
-              value={authName}
-              onChange={(event) => onAuthNameChange(event.target.value)}
-              required
-              placeholder="Name"
-              className="studio-input"
-            />
-          ) : null}
-          <input
-            value={authEmail}
-            onChange={(event) => onAuthEmailChange(event.target.value)}
-            required
-            type="email"
-            placeholder="Email"
-            className="studio-input"
-          />
-          <input
-            value={authPassword}
-            onChange={(event) => onAuthPasswordChange(event.target.value)}
-            required
-            minLength={8}
-            type="password"
-            placeholder="Password"
-            className="studio-input"
-          />
-        </div>
+        {/* Right Clean Auth / Invite Form */}
+        {!inviteVerified ? (
+          <form onSubmit={onInviteSubmit} className="flex flex-col justify-center p-6 sm:p-8">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-xl bg-accent-100 text-accent-600 dark:bg-accent-500/20 dark:text-accent-200">
+                <KeyRound className="size-5" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold text-accent-600 dark:text-accent-300">
+                  Step 1 · Invite Only
+                </p>
+                <h2 className="font-serif text-xl font-bold">后台邀请码</h2>
+              </div>
+            </div>
 
-        {authError ? (
-          <p className="mt-4 rounded-2xl bg-coral-100 px-4 py-3 text-sm font-semibold text-coral-950">
-            {authError}
-          </p>
-        ) : null}
+            <label className="studio-label mt-6 block">
+              邀请码
+              <input
+                value={inviteCode}
+                onChange={(event) => onInviteChange(event.target.value)}
+                required
+                autoComplete="off"
+                placeholder="请输入私有邀请码"
+                className="studio-input mt-2"
+              />
+            </label>
 
-        <Button className="mt-4 w-full sm:mt-5" type="submit">
-          <Sparkles className="size-4" />
-          {authMode === "signin" ? "Sign in" : "Create account"}
-        </Button>
-        <button
-          type="button"
-          onClick={() =>
-            onAuthModeChange(authMode === "signin" ? "signup" : "signin")
-          }
-          className="mt-4 w-full text-sm font-bold text-slate-600 underline-offset-4 hover:underline dark:text-slate-300"
-        >
-          {authMode === "signin"
-            ? "Need an account? Create one"
-            : "Already have an account? Sign in"}
-        </button>
-      </form>
+            {inviteError ? (
+              <p className="mt-4 rounded-xl bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-700 dark:bg-rose-500/15 dark:text-rose-200">
+                {inviteError}
+              </p>
+            ) : null}
+
+            <Button className="mt-5 w-full" type="submit">
+              <ShieldCheck className="size-4" />
+              验证邀请码
+            </Button>
+          </form>
+        ) : (
+          <form onSubmit={onAuthSubmit} className="flex flex-col justify-center p-6 sm:p-8">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200">
+                <Lock className="size-5" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+                  Step 2 · Better Auth
+                </p>
+                <h2 className="font-serif text-xl font-bold">
+                  {authMode === "signin" ? "作者登录" : "注册作者账号"}
+                </h2>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {authMode === "signup" ? (
+                <input
+                  value={authName}
+                  onChange={(event) => onAuthNameChange(event.target.value)}
+                  required
+                  placeholder="昵称"
+                  className="studio-input"
+                />
+              ) : null}
+              <input
+                value={authEmail}
+                onChange={(event) => onAuthEmailChange(event.target.value)}
+                required
+                type="email"
+                placeholder="邮箱"
+                className="studio-input"
+              />
+              <input
+                value={authPassword}
+                onChange={(event) => onAuthPasswordChange(event.target.value)}
+                required
+                minLength={8}
+                type="password"
+                placeholder="密码（至少 8 位）"
+                className="studio-input"
+              />
+            </div>
+
+            {authError ? (
+              <p className="mt-4 rounded-xl bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-700 dark:bg-rose-500/15 dark:text-rose-200">
+                {authError}
+              </p>
+            ) : null}
+
+            <Button className="mt-5 w-full" type="submit">
+              <Sparkles className="size-4" />
+              {authMode === "signin" ? "进入创作室" : "创建账号"}
+            </Button>
+
+            <button
+              type="button"
+              onClick={() =>
+                onAuthModeChange(authMode === "signin" ? "signup" : "signin")
+              }
+              className="mt-4 w-full text-center text-xs font-medium text-slate-500 underline-offset-4 transition hover:text-accent-600 hover:underline dark:text-slate-400 dark:hover:text-accent-300"
+            >
+              {authMode === "signin"
+                ? "还没有账号？去注册一个"
+                : "已有账号？直接登录"}
+            </button>
+          </form>
+        )}
+      </div>
     </section>
   );
 }

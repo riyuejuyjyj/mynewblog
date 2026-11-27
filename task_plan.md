@@ -118,7 +118,16 @@ Ship MyNewBlog as a usable bilingual personal blog and Studio system, with Cloud
 - Cloudflare build/deploy should run from GitHub Actions/Linux CI first. WSL remains useful for local reproduction, but it is no longer the main release path.
 
 ## Status
-Current mainline has moved past the 2026-06-11 Studio media pass: the worktree is clean, recent commits added the Word-style writing surface plus paragraph formatting in Studio, and QingMusic production search now has multi-source plus hardened fallback logic. The next closure step is no longer another static UI pass; it is runtime QA across Studio/music/media, followed by targeted refactoring of the oversized editor/orchestrator files before the next production push.
+Completed the QingMusic v1.1 manifest + backup source update (`4451183`), production four-provider playback resolver migration (`6fc49fe`), and the Direction A (日系治愈 / 轻小说插画风 · Koharu / ShokaX × Fuwari) full-site page refactor across public pages and Studio, including modularizing `studio-experience.tsx` and `markdown-editor.tsx`.
+
+## Completed Pass: 2026-11-27 (Direction A Full-Site Refactor & Music Resolver Fix)
+- [x] Updated QingMusic manifest parser to handle leading `/** ... */` JSDoc headers, `v1.1` 7-line metadata, and automatic fallback to `https://musicapi.haitangw.net/music.json`.
+- [x] Migrated built-in Cloudflare production music resolvers (`kw`, `kg`, `wy`, `tx`) to `https://musicapi.haitangw.net` with direct fallbacks, fixed `extractAudioUrl` array handling, and rejected bare-origin/Chinese error placeholder URLs.
+- [x] Generated cohesive Japanese anime visual assets (`public/anime/hero-day.jpg`, `hero-night.jpg`, `avatar.jpg`, `default-cover.jpg`) and centralized site config in `src/config/site.ts`.
+- [x] Built Direction A design system with 4 switchable Japanese palettes (`sakura` / `sky` / `wisteria` / `mint`), zero-flash theme bootstrap, unified `SiteHeader` / `SiteFooter` / `HeroWaves`, and removed the 2.35s splash screen.
+- [x] Rebuilt `/` as dynamic SSR with dual-scene anime hero, ShokaX alternating post cards, moments timeline, real R2 gallery strip, and sticky anime profile rail.
+- [x] Rebuilt `/posts`, `/categories/*`, `/tags/*` (with Cards + Year Timeline toggle), `/posts/[slug]` (scroll-spy TOC, copyable code blocks, image lightbox, threaded comments).
+- [x] Rebuilt `/studio` into a clean high-density workspace matching Direction A tokens and extracted `use-studio-auth.ts`, `use-studio-upload.ts`, `use-studio-music-actions.ts`, `rich-markdown-codec.ts`, and `editor-helpers.ts` while preserving background music playback.
 
 ## Next Pass: 2026-06-11
 

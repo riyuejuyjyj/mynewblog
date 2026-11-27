@@ -1,7 +1,7 @@
 import { StudioExperience } from "@/components/studio/studio-experience";
 
 export const metadata = {
-  title: "Studio | MyNewBlog",
+  title: "创作室",
 };
 
 export default function StudioPage() {

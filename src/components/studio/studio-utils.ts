@@ -1,3 +1,4 @@
+import { blogConfig } from "@/config/site";
 import type { StudioPost, StudioPostForm } from "@/components/studio/types";
 
 export const emptyForm: StudioPostForm = {
@@ -9,11 +10,10 @@ export const emptyForm: StudioPostForm = {
     "",
     "从这里开始记录代码、研究、灵感，或者任何值得保存的小小光亮。",
   ].join("\n"),
-  coverImage:
-    "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",
-  category: "essay",
-  mood: "quiet",
-  tagsText: "Next.js, Blog",
+  coverImage: blogConfig.images.defaultCover,
+  category: "书房札记",
+  mood: "晴空",
+  tagsText: "随笔, 笔记",
   readingMinutes: 4,
   featured: false,
   published: false,
