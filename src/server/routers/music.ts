@@ -759,10 +759,18 @@ function toErrorMessage(error: unknown) {
 function assertHttpAudioUrl(value: string) {
   const trimmed = value.trim();
 
+  if (!trimmed || /[\u4e00-\u9fff]/.test(trimmed)) {
+    return "";
+  }
+
   try {
     const url = new URL(trimmed);
 
     if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return "";
+    }
+
+    if (!url.pathname || url.pathname === "/") {
       return "";
     }
 
@@ -782,7 +790,16 @@ function normalizePlaybackAudioUrl(value: string) {
 
 function extractAudioUrl(value: unknown): string {
   if (typeof value === "string") return assertHttpAudioUrl(value);
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const audioUrl = extractAudioUrl(item);
+
+      if (audioUrl) return audioUrl;
+    }
+
+    return "";
+  }
+  if (typeof value !== "object" || value === null) {
     return "";
   }
 
@@ -1237,7 +1254,12 @@ function toKuwoBitrate(quality: z.infer<typeof qualitySchema>) {
 }
 
 function hasBuiltInProviderResolver(provider: z.infer<typeof sourceProviderSchema>) {
-  return provider === "kw" || provider === "kg" || provider === "wy";
+  return (
+    provider === "kw" ||
+    provider === "kg" ||
+    provider === "wy" ||
+    provider === "tx"
+  );
 }
 
 function hasBuiltInProviderLyricResolver(
@@ -1246,10 +1268,60 @@ function hasBuiltInProviderLyricResolver(
   return provider === "kw" || provider === "kg" || provider === "wy";
 }
 
-async function resolveKuwoBuiltInAudio(input: {
+type BuiltInAudioResolveResult = {
+  audioUrl: string;
+  lyric?: string;
+  sourceFileName: string;
+  warnings: string[];
+};
+
+const QING_MUSIC_API_BASE_URL = "https://musicapi.haitangw.net";
+
+async function resolveHaitangwAudio(input: {
+  label: string;
+  path: string;
+  params: Record<string, string>;
+  referer?: string;
+  sourceFileName: string;
+  warning: string;
+}): Promise<BuiltInAudioResolveResult> {
+  const url = new URL(input.path, QING_MUSIC_API_BASE_URL);
+
+  for (const [key, value] of Object.entries(input.params)) {
+    url.searchParams.set(key, value);
+  }
+
+  const payload = await fetchJsonWithTimeout(
+    url,
+    {
+      headers: {
+        accept: "application/json,text/plain,*/*",
+        ...(input.referer ? { referer: input.referer } : {}),
+        "user-agent": QING_MUSIC_RESOLVE_USER_AGENT,
+      },
+    },
+    input.label,
+  );
+  const audioUrl = normalizePlaybackAudioUrl(extractAudioUrl(payload));
+
+  if (!audioUrl) {
+    throw new Error(`${input.label} did not return a playable audio URL.`);
+  }
+
+  const lyric = extractLyricText(payload);
+
+  return {
+    audioUrl,
+    ...(lyric ? { lyric } : {}),
+    sourceFileName: input.sourceFileName,
+    warnings: [input.warning],
+  };
+}
+
+async function resolveKuwoDirectMobiAudio(input: {
   quality: z.infer<typeof qualitySchema>;
   songId: string;
-}) {
+}): Promise<BuiltInAudioResolveResult> {
   const url = new URL("http://mobi.kuwo.cn/mobi.s");
 
   url.searchParams.set("f", "web");
@@ -1260,75 +1332,100 @@ async function resolveKuwoBuiltInAudio(input: {
   url.searchParams.set("sig", "0");
   url.searchParams.set("rid", input.songId);
 
-  const response = await fetch(url, {
-    cache: "no-store",
-    headers: {
-      "user-agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36",
-    },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    QING_MUSIC_RESOLVE_TIMEOUT_MS,
+  );
 
-  if (!response.ok) {
-    throw new Error(`Kuwo built-in resolver failed with ${response.status}.`);
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      headers: {
+        "user-agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Kuwo direct mobi resolver failed with ${response.status}.`);
+    }
+
+    const contentType = response.headers.get("content-type") ?? "";
+    const text = await response.text();
+    const trimmedText = text.trim();
+    const payload =
+      contentType.includes("application/json") || trimmedText.startsWith("{")
+        ? JSON.parse(trimmedText)
+        : trimmedText;
+    const audioUrl = normalizePlaybackAudioUrl(extractAudioUrl(payload));
+
+    if (!audioUrl) {
+      throw new Error("Kuwo direct mobi resolver did not return an audio URL.");
+    }
+
+    return {
+      audioUrl,
+      sourceFileName: "kuwo-mobi-built-in",
+      warnings: ["Used built-in Kuwo car/mobile URL resolver."],
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function resolveKuwoBuiltInAudio(input: {
+  quality: z.infer<typeof qualitySchema>;
+  songId: string;
+}): Promise<BuiltInAudioResolveResult> {
+  const errors: string[] = [];
+
+  try {
+    return await resolveHaitangwAudio({
+      label: "QingMusic Kuwo resolver",
+      params: {
+        id: input.songId,
+        level: toQingMusicResolveLevel(input.quality),
+      },
+      path: "/music/kw.php",
+      sourceFileName: "qingmusic-kuwo-built-in",
+      warning: "Used QingMusic built-in Kuwo resolver.",
+    });
+  } catch (error) {
+    errors.push(toErrorMessage(error));
   }
 
-  const contentType = response.headers.get("content-type") ?? "";
-  const text = await response.text();
-  const trimmedText = text.trim();
-  const payload =
-    contentType.includes("application/json") || trimmedText.startsWith("{")
-      ? JSON.parse(trimmedText)
-      : trimmedText;
-  const audioUrl = normalizePlaybackAudioUrl(extractAudioUrl(payload));
-
-  if (!audioUrl) {
-    throw new Error("Kuwo built-in resolver did not return an audio URL.");
+  try {
+    return await resolveKuwoDirectMobiAudio(input);
+  } catch (error) {
+    errors.push(toErrorMessage(error));
   }
 
-  return {
-    audioUrl,
-    sourceFileName: "kuwo-mobi-built-in",
-    warnings: ["Used built-in Kuwo car/mobile URL resolver."],
-  };
+  throw new Error(errors.join(" | "));
 }
 
 async function resolveKugouBuiltInAudio(input: {
   quality: z.infer<typeof qualitySchema>;
   songId: string;
-}) {
-  const url = new URL("https://music.haitangw.cc/kgqq1/kg.php");
-
-  url.searchParams.set("id", input.songId);
-  url.searchParams.set("type", "json");
-  url.searchParams.set("level", toQingMusicResolveLevel(input.quality));
-
-  const payload = await fetchJsonWithTimeout(
-    url,
-    {
-      headers: {
-        accept: "application/json,text/plain,*/*",
-        referer: "https://www.kugou.com/",
-        "user-agent": QING_MUSIC_RESOLVE_USER_AGENT,
-      },
+}): Promise<BuiltInAudioResolveResult> {
+  return resolveHaitangwAudio({
+    label: "QingMusic Kugou resolver",
+    params: {
+      id: input.songId,
+      level: toQingMusicResolveLevel(input.quality),
+      type: "json",
     },
-    "Kugou built-in resolver",
-  );
-  const audioUrl = normalizePlaybackAudioUrl(extractAudioUrl(payload));
-
-  if (!audioUrl) {
-    throw new Error("Kugou built-in resolver did not return an audio URL.");
-  }
-
-  return {
-    audioUrl,
+    path: "/music/kg_song_kw.php",
+    referer: "https://www.kugou.com/",
     sourceFileName: "qingmusic-kugou-built-in",
-    warnings: ["Used QingMusic-compatible built-in Kugou resolver."],
-  };
+    warning: "Used QingMusic built-in Kugou resolver.",
+  });
 }
 
-async function resolveNeteaseBuiltInAudio(input: {
+async function resolveNeteaseDirectAudio(input: {
   quality: z.infer<typeof qualitySchema>;
   songId: string;
-}) {
+}): Promise<BuiltInAudioResolveResult> {
   const url = new URL("https://music.163.com/api/song/enhance/player/url/v1");
   const numericSongId = Number(input.songId);
   const songId =
@@ -1351,12 +1448,12 @@ async function resolveNeteaseBuiltInAudio(input: {
       },
       method: "POST",
     },
-    "Netease built-in resolver",
+    "Netease direct resolver",
   );
   const audioUrl = normalizePlaybackAudioUrl(extractAudioUrl(payload));
 
   if (!audioUrl) {
-    throw new Error("Netease built-in resolver did not return an audio URL.");
+    throw new Error("Netease direct resolver did not return an audio URL.");
   }
 
   return {
@@ -1364,6 +1461,80 @@ async function resolveNeteaseBuiltInAudio(input: {
     sourceFileName: "netease-player-url-built-in",
     warnings: ["Used built-in Netease player URL resolver."],
   };
+}
+
+async function resolveNeteaseBuiltInAudio(input: {
+  quality: z.infer<typeof qualitySchema>;
+  songId: string;
+}): Promise<BuiltInAudioResolveResult> {
+  const errors: string[] = [];
+
+  try {
+    return await resolveHaitangwAudio({
+      label: "QingMusic Netease resolver",
+      params: {
+        id: input.songId,
+        level: toQingMusicResolveLevel(input.quality),
+      },
+      path: "/wy/wy.php",
+      referer: "https://music.163.com/",
+      sourceFileName: "qingmusic-netease-built-in",
+      warning: "Used QingMusic built-in Netease resolver.",
+    });
+  } catch (error) {
+    errors.push(toErrorMessage(error));
+  }
+
+  try {
+    return await resolveNeteaseDirectAudio(input);
+  } catch (error) {
+    errors.push(toErrorMessage(error));
+  }
+
+  throw new Error(errors.join(" | "));
+}
+
+async function resolveTencentBuiltInAudio(input: {
+  quality: z.infer<typeof qualitySchema>;
+  songId: string;
+}): Promise<BuiltInAudioResolveResult> {
+  const errors: string[] = [];
+
+  try {
+    return await resolveHaitangwAudio({
+      label: "QingMusic QQ direct resolver",
+      params: {
+        id: input.songId,
+        level: toQingMusicResolveLevel(input.quality),
+        type: "json",
+      },
+      path: "/qq/qq.php",
+      referer: "https://y.qq.com/",
+      sourceFileName: "qingmusic-qq-direct-built-in",
+      warning: "Used QingMusic built-in QQ resolver.",
+    });
+  } catch (error) {
+    errors.push(toErrorMessage(error));
+  }
+
+  try {
+    return await resolveHaitangwAudio({
+      label: "QingMusic QQ matched resolver",
+      params: {
+        id: input.songId,
+        level: toQingMusicResolveLevel(input.quality),
+        type: "json",
+      },
+      path: "/music/qq_kw.php",
+      referer: "https://y.qq.com/",
+      sourceFileName: "qingmusic-qq-kw-built-in",
+      warning: "Used QingMusic built-in QQ fallback resolver.",
+    });
+  } catch (error) {
+    errors.push(toErrorMessage(error));
+  }
+
+  throw new Error(errors.join(" | "));
 }
 
 async function resolveBuiltInProviderAudio(input: {
@@ -1382,12 +1553,15 @@ async function resolveBuiltInProviderAudio(input: {
         ? await resolveKugouBuiltInAudio({ quality: input.quality, songId })
         : input.provider === "wy"
           ? await resolveNeteaseBuiltInAudio({ quality: input.quality, songId })
-          : null;
+          : input.provider === "tx"
+            ? await resolveTencentBuiltInAudio({ quality: input.quality, songId })
+            : null;
 
   if (!result) return null;
 
   return {
     audioUrl: result.audioUrl,
+    ...(result.lyric ? { lyric: result.lyric } : {}),
     provider: input.provider,
     quality: input.quality,
     sourceFileName: result.sourceFileName,
@@ -1428,7 +1602,7 @@ function makeBuiltInProviderResolveErrorMessage(input: {
       : `QingMusic online resolver failed for ${input.provider}; try another provider or retry later.`;
   }
 
-  return `Cloudflare production does not include a built-in online resolver for ${input.provider}; use an R2-cached track or switch to kw/kg/wy.`;
+  return `Cloudflare production does not include a built-in online resolver for ${input.provider}; use an R2-cached track or switch to kw/kg/wy/tx.`;
 }
 
 async function resolveBuiltInLyricWithFallback(input: {
@@ -3043,10 +3217,19 @@ export const musicRouter = createTRPCRouter({
 
         if (builtInResult) {
           const lyricPayload = await buildLyricPayload();
+          const finalLyricPayload =
+            "lyric" in lyricPayload && lyricPayload.lyric
+              ? lyricPayload
+              : builtInResult.lyric
+                ? {
+                    lyric: builtInResult.lyric,
+                    lyricSource: sourceProvider.data,
+                  }
+                : {};
 
           return {
             audioUrl: builtInResult.audioUrl,
-            ...lyricPayload,
+            ...finalLyricPayload,
             source: input.provider,
             title: input.candidate?.title,
             warnings: builtInResult.warnings,
