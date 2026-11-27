@@ -18,6 +18,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import { WritingHeatmap } from "@/components/home/writing-heatmap";
+import { FloatingDock } from "@/components/layout/floating-dock";
 import { HeroWaves } from "@/components/layout/hero-waves";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -448,7 +450,7 @@ export function PostsIndex({
                     <div className="grid md:grid-cols-[240px_minmax(0,1fr)]">
                       <Link
                         aria-label={`阅读：${post.title}`}
-                        className="relative aspect-[16/10] overflow-hidden bg-surface-muted md:aspect-auto md:min-h-[200px]"
+                        className="shoka-cover-left relative aspect-[16/10] overflow-hidden bg-surface-muted md:aspect-auto md:min-h-[200px]"
                         href={`/posts/${post.slug}`}
                       >
                         <Image
@@ -522,6 +524,11 @@ export function PostsIndex({
           </div>
 
           <aside className="space-y-5 lg:sticky lg:top-20">
+            <WritingHeatmap
+              dates={posts.map((post) => post.publishedAt)}
+              weeks={15}
+            />
+
             {featured ? (
               <section className="anime-card overflow-hidden">
                 <div className="relative aspect-[16/10] overflow-hidden">
@@ -594,6 +601,7 @@ export function PostsIndex({
         </section>
       </main>
 
+      <FloatingDock />
       <SiteFooter />
     </div>
   );

@@ -2,7 +2,18 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { Check, Copy, Link2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  ChevronRight,
+  Copy,
+  Flame,
+  Info,
+  Lightbulb,
+  Link2,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 
 import { createMarkdownHeadingId } from "@/lib/markdown";
@@ -12,6 +23,55 @@ type ParagraphAlign = "left" | "center" | "right" | "justify";
 type ParagraphFormat = {
   align: ParagraphAlign;
   firstLineIndent: boolean;
+};
+
+type CalloutKind = "info" | "tip" | "warning" | "danger" | "note";
+
+const calloutMeta: Record<
+  CalloutKind,
+  {
+    borderClass: string;
+    bgClass: string;
+    icon: typeof Info;
+    titleClass: string;
+    defaultTitle: string;
+  }
+> = {
+  info: {
+    borderClass: "border-sky-300/80 dark:border-sky-400/35",
+    bgClass: "bg-sky-50/80 dark:bg-sky-500/10",
+    icon: Info,
+    titleClass: "text-sky-700 dark:text-sky-200",
+    defaultTitle: "信息提示",
+  },
+  tip: {
+    borderClass: "border-emerald-300/80 dark:border-emerald-400/35",
+    bgClass: "bg-emerald-50/80 dark:bg-emerald-500/10",
+    icon: Lightbulb,
+    titleClass: "text-emerald-700 dark:text-emerald-200",
+    defaultTitle: "小贴士",
+  },
+  warning: {
+    borderClass: "border-amber-300/80 dark:border-amber-400/35",
+    bgClass: "bg-amber-50/80 dark:bg-amber-500/10",
+    icon: AlertTriangle,
+    titleClass: "text-amber-700 dark:text-amber-200",
+    defaultTitle: "注意事项",
+  },
+  danger: {
+    borderClass: "border-rose-300/80 dark:border-rose-400/35",
+    bgClass: "bg-rose-50/80 dark:bg-rose-500/10",
+    icon: Flame,
+    titleClass: "text-rose-700 dark:text-rose-200",
+    defaultTitle: "重要警告",
+  },
+  note: {
+    borderClass: "border-accent-300/80 dark:border-accent-400/35",
+    bgClass: "bg-accent-50/80 dark:bg-accent-500/12",
+    icon: Sparkles,
+    titleClass: "text-accent-700 dark:text-accent-200",
+    defaultTitle: "书房批注",
+  },
 };
 
 function createDefaultParagraphFormat(): ParagraphFormat {
@@ -44,6 +104,29 @@ function getParagraphRenderAttrs(format: ParagraphFormat) {
     ...(format.align !== "left" ? { "data-align": format.align } : {}),
     ...(format.firstLineIndent ? { "data-first-line-indent": "true" } : {}),
   };
+}
+
+function SpoilerSpan({ text }: { text: string }) {
+  const [revealed, setRevealed] = useState(false);
+
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      data-revealed={revealed ? "true" : "false"}
+      title="你知道得太多了 · 悬停或点击查看"
+      onClick={() => setRevealed((current) => !current)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setRevealed((current) => !current);
+        }
+      }}
+      className="anime-spoiler"
+    >
+      {text}
+    </span>
+  );
 }
 
 function CodeBlock({
@@ -109,7 +192,7 @@ function renderInline(
 ): ReactNode[] {
   const nodes: ReactNode[] = [];
   const pattern =
-    /(!\[[^\]]*]\([^)]+\)|\[[^\]]+]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+    /(!\[[^\]]*]\([^)]+\)|\[[^\]]+]\([^)]+\)|`[^`]+`|\|\|[^|]+\|\||\{[^|{}]+\|[^|{}]+\}|\*\*[^*]+\*\*|\*[^*]+\*)/g;
   let lastIndex = 0;
 
   for (const match of text.matchAll(pattern)) {
@@ -162,6 +245,24 @@ function renderInline(
           {token.slice(1, -1)}
         </code>,
       );
+    } else if (token.startsWith("||")) {
+      nodes.push(
+        <SpoilerSpan key={`${token}-${index}`} text={token.slice(2, -2)} />,
+      );
+    } else if (token.startsWith("{")) {
+      const parts = token.slice(1, -1).split("|");
+      if (parts.length === 2) {
+        nodes.push(
+          <ruby key={`${token}-${index}`}>
+            {parts[0]}
+            <rp>(</rp>
+            <rt>{parts[1]}</rt>
+            <rp>)</rp>
+          </ruby>,
+        );
+      } else {
+        nodes.push(token);
+      }
     } else if (token.startsWith("**")) {
       nodes.push(<strong key={`${token}-${index}`}>{token.slice(2, -2)}</strong>);
     } else if (token.startsWith("*")) {
@@ -186,9 +287,7 @@ function readList(lines: string[], start: number, ordered: boolean) {
   while (index < lines.length) {
     const match = lines[index].match(pattern);
 
-    if (!match) {
-      break;
-    }
+    if (!match) break;
 
     items.push(match[1]);
     index += 1;
@@ -226,6 +325,86 @@ function renderMarkdownBlocks(
     }
 
     if (!trimmed) {
+      index += 1;
+      continue;
+    }
+
+    // Shoka / Koharu Callout block: :::tip [Title] ... :::
+    const calloutMatch = trimmed.match(
+      /^:::(info|tip|warning|danger|note)(?:\s+(.*))?$/i,
+    );
+    if (calloutMatch) {
+      const kind = calloutMatch[1].toLowerCase() as CalloutKind;
+      const customTitle = calloutMatch[2]?.trim();
+      const bodyLines: string[] = [];
+      index += 1;
+
+      while (index < lines.length && lines[index].trim() !== ":::") {
+        bodyLines.push(lines[index]);
+        index += 1;
+      }
+
+      const config = calloutMeta[kind];
+      const Icon = config.icon;
+
+      blocks.push(
+        <aside
+          key={`callout-${index}`}
+          className={`my-6 rounded-2xl border-l-4 ${config.borderClass} ${config.bgClass} p-4 font-sans`}
+        >
+          <div
+            className={`flex items-center gap-2 text-sm font-bold ${config.titleClass}`}
+          >
+            <Icon className="size-4 shrink-0" />
+            <span>{customTitle || config.defaultTitle}</span>
+          </div>
+          <div className="mt-2 space-y-1.5 font-serif text-sm leading-7 text-slate-700 dark:text-slate-200">
+            {bodyLines
+              .join("\n")
+              .split(/\n{2,}/)
+              .filter((chunk) => chunk.trim())
+              .map((chunk, chunkIndex) => (
+                <p key={chunkIndex} className="my-1">
+                  {renderInline(chunk.trim(), onImageClick)}
+                </p>
+              ))}
+          </div>
+        </aside>,
+      );
+
+      pendingParagraphFormat = createDefaultParagraphFormat();
+      index += 1;
+      continue;
+    }
+
+    // Collapsible details block: +++ Summary ... +++
+    const detailsMatch = trimmed.match(/^\+\+\+\s+(.+)$/);
+    if (detailsMatch) {
+      const summary = detailsMatch[1].trim();
+      const bodyLines: string[] = [];
+      index += 1;
+
+      while (index < lines.length && lines[index].trim() !== "+++") {
+        bodyLines.push(lines[index]);
+        index += 1;
+      }
+
+      blocks.push(
+        <details
+          key={`details-${index}`}
+          className="group my-5 overflow-hidden rounded-2xl border border-slate-200/80 bg-surface-muted/60 font-sans dark:border-white/10 dark:bg-white/[0.04]"
+        >
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:text-accent-600 dark:text-slate-100 dark:hover:text-accent-200">
+            <ChevronRight className="size-4 shrink-0 text-accent-500 transition-transform group-open:rotate-90" />
+            <span>{summary}</span>
+          </summary>
+          <div className="border-t border-slate-200/70 px-4 py-3 font-serif text-sm leading-7 text-slate-700 dark:border-white/8 dark:text-slate-200">
+            {renderMarkdownBlocks(bodyLines.join("\n"), onImageClick)}
+          </div>
+        </details>,
+      );
+
+      pendingParagraphFormat = createDefaultParagraphFormat();
       index += 1;
       continue;
     }
@@ -398,6 +577,8 @@ function renderMarkdownBlocks(
         next.startsWith("#") ||
         next.startsWith("> ") ||
         next.startsWith("```") ||
+        next.startsWith(":::") ||
+        next.startsWith("+++") ||
         readParagraphFormatLine(next) ||
         /^[-*]\s+/.test(next) ||
         /^\d+\.\s+/.test(next)

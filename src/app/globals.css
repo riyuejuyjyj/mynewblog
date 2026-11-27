@@ -557,6 +557,123 @@
   .home-shell :is(button:disabled, [aria-disabled="true"]) {
     cursor: not-allowed;
   }
+
+  /* Shoka / Koharu signature diagonal slanted cover cuts on desktop */
+  @media (width >= 48rem) {
+    .shoka-cover-left {
+      clip-path: polygon(0 0, 100% 0, 91% 100%, 0 100%);
+    }
+
+    .shoka-cover-right {
+      clip-path: polygon(9% 0, 100% 0, 100% 100%, 0 100%);
+    }
+  }
+
+  /* Shoka-style inline spoiler bar ("你知道得太多了") */
+  .anime-spoiler {
+    border-radius: 0.35rem;
+    background: #1e2436;
+    color: transparent;
+    padding: 0.06rem 0.4rem;
+    transition: background-color 240ms ease, color 240ms ease;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .dark .anime-spoiler {
+    background: #cbd5e1;
+  }
+
+  .anime-spoiler:hover,
+  .anime-spoiler:focus-visible,
+  .anime-spoiler[data-revealed="true"] {
+    background: color-mix(in srgb, var(--accent-200) 45%, transparent);
+    color: var(--foreground);
+    user-select: text;
+  }
+
+  .dark .anime-spoiler:hover,
+  .dark .anime-spoiler:focus-visible,
+  .dark .anime-spoiler[data-revealed="true"] {
+    background: color-mix(in srgb, var(--accent-500) 24%, transparent);
+    color: var(--foreground);
+  }
+
+  .studio-markdown-preview ruby rt {
+    font-size: 0.65em;
+    color: var(--accent-600);
+    font-weight: 500;
+  }
+
+  .dark .studio-markdown-preview ruby rt {
+    color: var(--accent-200);
+  }
+
+  /* Nav click micro petal burst */
+  .nav-petal-spark {
+    position: fixed;
+    pointer-events: none;
+    z-index: 90;
+    width: 8px;
+    height: 6px;
+    border-radius: 80% 0 80% 0;
+    background: linear-gradient(135deg, var(--accent-200), var(--accent-500));
+    animation: petalBurst 640ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .animate-vinyl-spin {
+    animation: slowSpin 7s linear infinite;
+  }
+}
+
+/* View Transitions API circular theme ripple (koharu night-sakura reveal) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* Respect user motion & petal controls */
+:root[data-petals="false"] .hero-petal {
+  display: none !important;
+}
+
+:root[data-motion="subtle"] .hero-petal {
+  opacity: 0.45;
+}
+
+:root[data-motion="off"] .anime-wave-layer-1,
+:root[data-motion="off"] .anime-wave-layer-2,
+:root[data-motion="off"] .anime-wave-layer-3,
+:root[data-motion="off"] .hero-petal,
+:root[data-motion="off"] .animate-vinyl-spin,
+:root[data-motion="off"] .nav-petal-spark {
+  animation: none !important;
+}
+
+@keyframes slowSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes petalBurst {
+  0% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) translate(0, 0) scale(0.75) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(var(--burst-x, 24px), var(--burst-y, -24px)) scale(0.35) rotate(140deg);
+  }
 }
 
 @keyframes waveDrift {

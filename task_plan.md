@@ -128,6 +128,7 @@ Completed the QingMusic v1.1 manifest + backup source update (`4451183`), produc
 - [x] Rebuilt `/` as dynamic SSR with dual-scene anime hero, ShokaX alternating post cards, moments timeline, real R2 gallery strip, and sticky anime profile rail.
 - [x] Rebuilt `/posts`, `/categories/*`, `/tags/*` (with Cards + Year Timeline toggle), `/posts/[slug]` (scroll-spy TOC, copyable code blocks, image lightbox, threaded comments).
 - [x] Rebuilt `/studio` into a clean high-density workspace matching Direction A tokens and extracted `use-studio-auth.ts`, `use-studio-upload.ts`, `use-studio-music-actions.ts`, `rich-markdown-codec.ts`, and `editor-helpers.ts` while preserving background music playback.
+- [x] Phase 2 Koharu/ShokaX craft upgrade: View Transitions circular ripple dark-mode switch, 3-tier motion & petals Appearance panel, scroll-shrinking floating pill header with spring nav pill & petal click bursts, `Ctrl/Cmd+K` global fuzzy search, floating dock (scroll progress ring + public Mini BGM capsule), Shoka diagonal slanted covers, writing activity heatmap, silk-thread TOC, Markdown callouts/accordions/spoilers/ruby furigana, Post Actions & Colophon signature, plus dedicated `/friends` and `/about` pages.
 
 ## Next Pass: 2026-06-11
 

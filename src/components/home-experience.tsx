@@ -11,6 +11,7 @@ import {
   Heart,
   Image as ImageIcon,
   MapPin,
+  Megaphone,
   MessageCircle,
   PenLine,
   Send,
@@ -23,6 +24,8 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { AnimeHero } from "@/components/home/anime-hero";
+import { WritingHeatmap } from "@/components/home/writing-heatmap";
+import { FloatingDock } from "@/components/layout/floating-dock";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Badge } from "@/components/ui/badge";
@@ -150,6 +153,14 @@ export function HomeExperience({
     [initialPosts],
   );
 
+  const activityDates = useMemo(
+    () => [
+      ...initialPosts.map((post) => post.publishedAt),
+      ...initialMoments.map((moment) => moment.createdAt),
+    ],
+    [initialMoments, initialPosts],
+  );
+
   function submitQuickComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!featured) return;
@@ -173,12 +184,20 @@ export function HomeExperience({
         <div className="grid grid-cols-1 gap-7 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
           {/* Primary Left Column */}
           <div className="min-w-0 space-y-9">
+            {/* Soft Pink-Blue Announcement Ribbon */}
+            <div className="anime-card flex items-center gap-3 border-accent-200/70 bg-gradient-to-r from-accent-50/90 via-surface to-sky-50/70 px-4 py-3 text-xs leading-6 text-slate-600 dark:border-accent-400/20 dark:from-accent-500/12 dark:via-surface dark:to-sky-500/10 dark:text-slate-300">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent-500 text-white shadow-sm">
+                <Megaphone className="size-3.5" />
+              </span>
+              <p className="min-w-0 flex-1">{blogConfig.announcement}</p>
+            </div>
+
             {/* Featured Spotlight */}
             {featured ? (
               <section aria-label="精选推荐">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="h-5 w-1.5 rounded-full bg-accent-500" />
+                    <span className="h-5 w-1.5 rounded-full bg-gradient-to-b from-accent-500 to-sky-400" />
                     <h2 className="font-serif text-xl font-bold">精选推荐</h2>
                   </div>
                   <span className="font-mono text-xs text-slate-400">
@@ -191,7 +210,7 @@ export function HomeExperience({
                     href={`/posts/${featured.slug}`}
                     className="grid md:grid-cols-[1.15fr_1fr]"
                   >
-                    <div className="relative aspect-[16/10] overflow-hidden bg-surface-muted md:aspect-auto md:min-h-[260px]">
+                    <div className="shoka-cover-left relative aspect-[16/10] overflow-hidden bg-surface-muted md:aspect-auto md:min-h-[260px]">
                       <Image
                         src={featured.coverImage}
                         alt={featured.title}
@@ -288,7 +307,9 @@ export function HomeExperience({
                           aria-label={`阅读 ${post.title}`}
                           className={cn(
                             "relative aspect-[16/10] overflow-hidden bg-surface-muted md:col-span-5 md:aspect-auto md:min-h-[210px]",
-                            reverseDesktop && "md:order-2",
+                            reverseDesktop
+                              ? "shoka-cover-right md:order-2"
+                              : "shoka-cover-left",
                           )}
                         >
                           <Image
@@ -513,6 +534,9 @@ export function HomeExperience({
               </div>
             </section>
 
+            {/* Annual Writing Activity Heatmap */}
+            <WritingHeatmap dates={activityDates} weeks={15} />
+
             {/* Categories Card */}
             <section className="anime-card p-5">
               <div className="flex items-center justify-between">
@@ -679,6 +703,7 @@ export function HomeExperience({
         </div>
       </main>
 
+      <FloatingDock />
       <SiteFooter />
     </div>
   );

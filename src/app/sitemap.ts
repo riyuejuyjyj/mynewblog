@@ -27,6 +27,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.85,
       url: absoluteSiteUrl("/posts"),
     },
+    {
+      changeFrequency: "monthly",
+      lastModified: new Date(),
+      priority: 0.7,
+      url: absoluteSiteUrl("/friends"),
+    },
+    {
+      changeFrequency: "monthly",
+      lastModified: new Date(),
+      priority: 0.7,
+      url: absoluteSiteUrl("/about"),
+    },
     ...categories.map((category) => ({
       changeFrequency: "weekly" as const,
       lastModified: new Date(),

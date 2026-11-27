@@ -64,7 +64,7 @@ export const blogRouter = createTRPCRouter({
     .input(
       z
         .object({
-          limit: z.number().int().min(1).max(12).default(6),
+          limit: z.number().int().min(1).max(60).default(6),
         })
         .default({ limit: 6 }),
     )

@@ -1,4 +1,11 @@
-import { BookOpen, PenLine, Rss, Sparkles } from "lucide-react";
+import {
+  BookOpen,
+  HeartHandshake,
+  PenLine,
+  Rss,
+  Sparkles,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 
 import { blogConfig } from "@/config/site";
@@ -35,24 +42,38 @@ export function SiteFooter() {
         <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
           <Link
             href="/posts"
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white px-3.5 py-1.5 transition hover:border-accent-300 hover:text-accent-600 dark:border-white/10 dark:bg-white/5 dark:hover:border-accent-400/40 dark:hover:text-accent-200"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-surface px-3.5 py-1.5 transition hover:border-accent-300 hover:text-accent-600 dark:border-white/10 dark:bg-white/5 dark:hover:border-accent-400/40 dark:hover:text-accent-200"
           >
             <BookOpen className="size-3.5" />
-            文章归档
+            归档
+          </Link>
+          <Link
+            href="/friends"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-surface px-3.5 py-1.5 transition hover:border-accent-300 hover:text-accent-600 dark:border-white/10 dark:bg-white/5 dark:hover:border-accent-400/40 dark:hover:text-accent-200"
+          >
+            <HeartHandshake className="size-3.5" />
+            友链
+          </Link>
+          <Link
+            href="/about"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-surface px-3.5 py-1.5 transition hover:border-accent-300 hover:text-accent-600 dark:border-white/10 dark:bg-white/5 dark:hover:border-accent-400/40 dark:hover:text-accent-200"
+          >
+            <UserRound className="size-3.5" />
+            关于
           </Link>
           <Link
             href="/feed.xml"
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white px-3.5 py-1.5 transition hover:border-accent-300 hover:text-accent-600 dark:border-white/10 dark:bg-white/5 dark:hover:border-accent-400/40 dark:hover:text-accent-200"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-surface px-3.5 py-1.5 transition hover:border-accent-300 hover:text-accent-600 dark:border-white/10 dark:bg-white/5 dark:hover:border-accent-400/40 dark:hover:text-accent-200"
           >
             <Rss className="size-3.5" />
-            RSS 订阅
+            RSS
           </Link>
           <Link
             href="/studio"
             className="inline-flex items-center gap-1.5 rounded-full border border-accent-200/80 bg-accent-50 px-3.5 py-1.5 text-accent-700 transition hover:bg-accent-100 dark:border-accent-400/25 dark:bg-accent-500/15 dark:text-accent-200 dark:hover:bg-accent-500/25"
           >
             <PenLine className="size-3.5" />
-            进入创作室
+            创作室
           </Link>
         </div>
       </div>

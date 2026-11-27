@@ -2944,16 +2944,20 @@ export const musicRouter = createTRPCRouter({
         return seedTracks.filter((track) => input.includeDisabled || track.enabled);
       }
 
-      const rows = await ctx.db
-        .select()
-        .from(musicTracks)
-        .where(
-          input.includeDisabled ? undefined : eq(musicTracks.enabled, true),
-        )
-        .orderBy(asc(musicTracks.sortOrder), desc(musicTracks.createdAt))
-        .limit(input.limit);
+      try {
+        const rows = await ctx.db
+          .select()
+          .from(musicTracks)
+          .where(
+            input.includeDisabled ? undefined : eq(musicTracks.enabled, true),
+          )
+          .orderBy(asc(musicTracks.sortOrder), desc(musicTracks.createdAt))
+          .limit(input.limit);
 
-      return rows.map(toPublicTrack);
+        return rows.map(toPublicTrack);
+      } catch {
+        return seedTracks.filter((track) => input.includeDisabled || track.enabled);
+      }
     }),
 
   upsertTrack: studioProcedure.input(trackInput).mutation(async ({ ctx, input }) => {

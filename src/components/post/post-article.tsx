@@ -6,10 +6,14 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  Check,
   ChevronDown,
   Clock3,
+  Copy,
+  Download,
   Eye,
   Heart,
+  Link as LinkIcon,
   ListTree,
   Sparkles,
   Tag,
@@ -17,8 +21,9 @@ import {
 import { motion, useScroll, useSpring } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { FloatingDock } from "@/components/layout/floating-dock";
 import { HeroWaves } from "@/components/layout/hero-waves";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -53,6 +58,21 @@ function formatShortDate(value: string) {
   }).format(new Date(value));
 }
 
+function buildMarkdownDocument(post: PublicPost) {
+  const tagsLine = post.tags.map((tag) => `"${tag}"`).join(", ");
+  return [
+    "---",
+    `title: "${post.title.replaceAll('"', '\\"')}"`,
+    `slug: "${post.slug}"`,
+    `date: "${post.publishedAt}"`,
+    `category: "${post.category}"`,
+    `tags: [${tagsLine}]`,
+    "---",
+    "",
+    post.content,
+  ].join("\n");
+}
+
 export function PostArticle({
   comments,
   nextPost,
@@ -67,11 +87,35 @@ export function PostArticle({
   const [activeHeadingId, setActiveHeadingId] = useState(
     headings[0]?.id ?? "",
   );
+  const [readingPercent, setReadingPercent] = useState(0);
+  const [copiedAction, setCopiedAction] = useState<"markdown" | "link" | null>(
+    null,
+  );
+  const [silkIndicator, setSilkIndicator] = useState({ height: 24, top: 0 });
+  const tocLinkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
     damping: 30,
     stiffness: 180,
   });
+
+  useEffect(() => {
+    function updatePercent() {
+      const scrollTop = window.scrollY;
+      const docHeight =
+        document.documentElement.scrollHeight - window.innerHeight;
+      const pct =
+        docHeight > 0
+          ? Math.min(100, Math.max(0, Math.round((scrollTop / docHeight) * 100)))
+          : 0;
+      setReadingPercent(pct);
+    }
+
+    updatePercent();
+    window.addEventListener("scroll", updatePercent, { passive: true });
+    return () => window.removeEventListener("scroll", updatePercent);
+  }, []);
 
   useEffect(() => {
     if (headings.length === 0) return;
@@ -105,11 +149,55 @@ export function PostArticle({
     return () => observer.disconnect();
   }, [headings]);
 
+  useEffect(() => {
+    const activeLink = tocLinkRefs.current[activeHeadingId];
+    if (!activeLink) return;
+
+    setSilkIndicator({
+      height: activeLink.offsetHeight,
+      top: activeLink.offsetTop,
+    });
+  }, [activeHeadingId, headings]);
+
+  async function copyMarkdown() {
+    try {
+      await navigator.clipboard.writeText(buildMarkdownDocument(post));
+      setCopiedAction("markdown");
+      window.setTimeout(() => setCopiedAction(null), 1800);
+    } catch {
+      // Ignore clipboard failures.
+    }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopiedAction("link");
+      window.setTimeout(() => setCopiedAction(null), 1800);
+    } catch {
+      // Ignore clipboard failures.
+    }
+  }
+
+  function downloadMarkdown() {
+    const blob = new Blob([buildMarkdownDocument(post)], {
+      type: "text/markdown;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${post.slug}.md`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const permalink = `${blogConfig.url}/posts/${post.slug}`;
+
   return (
     <div className="home-shell anime-page-bg min-h-screen bg-background text-foreground">
       <SiteHeader overlayHero />
 
-      {/* Top reading progress line */}
+      {/* Top thin reading progress bar */}
       <motion.div
         className="fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-gradient-to-r from-accent-500 via-sky-400 to-violet-400"
         style={{ scaleX }}
@@ -192,7 +280,7 @@ export function PostArticle({
                   文章目录
                 </span>
                 <span className="inline-flex items-center gap-1.5 font-mono text-xs text-slate-400">
-                  {headings.length} 节
+                  {readingPercent}% · {headings.length} 节
                   <ChevronDown
                     className={cn(
                       "size-4 transition-transform",
@@ -229,26 +317,73 @@ export function PostArticle({
           {/* Main Reading Paper */}
           <div className="min-w-0 space-y-6">
             <article className="anime-card overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-white/8 sm:px-8">
-                <Link
-                  href="/posts"
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 transition hover:text-accent-600 dark:text-slate-400 dark:hover:text-accent-300"
-                >
-                  <ArrowLeft className="size-3.5" />
-                  返回文章归档
-                </Link>
-
-                <div className="flex flex-wrap items-center gap-1.5">
+              {/* Top Utility Bar: Back + Tags + Markdown Actions */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5 dark:border-white/8 sm:px-8">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href="/posts"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 transition hover:text-accent-600 dark:text-slate-400 dark:hover:text-accent-300"
+                  >
+                    <ArrowLeft className="size-3.5" />
+                    归档
+                  </Link>
+                  <span className="text-slate-300 dark:text-white/15">/</span>
                   {post.tags.map((tag) => (
                     <Link
                       key={tag}
                       href={getTagPath(tag)}
-                      className="inline-flex items-center gap-1 rounded-full bg-accent-50 px-2.5 py-1 text-xs font-medium text-accent-700 transition hover:bg-accent-100 dark:bg-accent-500/15 dark:text-accent-200 dark:hover:bg-accent-500/25"
+                      className="inline-flex items-center gap-1 rounded-full bg-accent-50 px-2.5 py-0.5 text-[11px] font-medium text-accent-700 transition hover:bg-accent-100 dark:bg-accent-500/15 dark:text-accent-200 dark:hover:bg-accent-500/25"
                     >
                       <Tag className="size-3" />
                       {tag}
                     </Link>
                   ))}
+                </div>
+
+                {/* Koharu-inspired Post Actions (Copy MD / Download .md / Copy Link) */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void copyMarkdown()}
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-surface-muted/60 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-accent-300 hover:text-accent-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-accent-200"
+                  >
+                    {copiedAction === "markdown" ? (
+                      <>
+                        <Check className="size-3 text-emerald-500" />
+                        已复制 MD
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="size-3" />
+                        复制 MD
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={downloadMarkdown}
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-surface-muted/60 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-accent-300 hover:text-accent-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-accent-200"
+                  >
+                    <Download className="size-3" />
+                    .md
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void copyLink()}
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-surface-muted/60 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-accent-300 hover:text-accent-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-accent-200"
+                  >
+                    {copiedAction === "link" ? (
+                      <>
+                        <Check className="size-3 text-emerald-500" />
+                        已复制链接
+                      </>
+                    ) : (
+                      <>
+                        <LinkIcon className="size-3" />
+                        分享
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -259,12 +394,40 @@ export function PostArticle({
                 <MarkdownPreview interactiveImages value={post.content} />
               </div>
 
-              <div className="border-t border-slate-100 bg-surface-muted/45 px-5 py-4 text-xs text-slate-500 dark:border-white/8 dark:bg-white/[0.02] dark:text-slate-400 sm:px-8">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>发布于 {formatShortDate(post.publishedAt)}</span>
-                  {post.updatedAt ? (
-                    <span>最后更新于 {formatShortDate(post.updatedAt)}</span>
-                  ) : null}
+              {/* Article Colophon / Signature Card (文章落款) */}
+              <div className="border-t border-slate-100 bg-gradient-to-r from-accent-50/55 via-surface-muted/40 to-sky-50/45 px-5 py-5 dark:border-white/8 dark:from-accent-500/[0.08] dark:via-white/[0.02] dark:to-sky-500/[0.06] sm:px-8">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="relative size-10 shrink-0 overflow-hidden rounded-full ring-2 ring-accent-200 dark:ring-accent-400/30">
+                      <Image
+                        src={blogConfig.images.avatar}
+                        alt={blogConfig.author}
+                        fill
+                        sizes="40px"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0 text-xs">
+                      <p className="font-semibold text-slate-800 dark:text-slate-100">
+                        文 / {blogConfig.author} · 原创记录于{" "}
+                        {blogConfig.brandSuffix}
+                      </p>
+                      <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">
+                        {permalink}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 sm:text-right">
+                    <p>
+                      发布 {formatShortDate(post.publishedAt)}
+                      {post.updatedAt
+                        ? ` · 更新 ${formatShortDate(post.updatedAt)}`
+                        : ""}
+                    </p>
+                    <p className="mt-0.5 text-slate-400">
+                      CC BY-NC-SA 4.0 · 转载请注明出处
+                    </p>
+                  </div>
                 </div>
               </div>
             </article>
@@ -331,7 +494,7 @@ export function PostArticle({
             <PostComments initialComments={comments} postSlug={post.slug} />
           </div>
 
-          {/* Right Sticky Author & Scroll-Spy TOC Sidebar */}
+          {/* Right Sticky Author & Silk-Thread TOC Sidebar */}
           <aside className="hidden space-y-5 lg:sticky lg:top-20 lg:block">
             <section className="anime-card p-4">
               <div className="flex items-center gap-3">
@@ -375,33 +538,61 @@ export function PostArticle({
               </div>
             </section>
 
+            {/* Silk-Thread Progress TOC */}
             {headings.length > 0 ? (
               <section className="anime-card max-h-[68vh] overflow-y-auto p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <ListTree className="size-4 text-accent-500" />
-                  <h2 className="text-sm font-bold">文章目录</h2>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="flex items-center gap-2 text-sm font-bold">
+                    <ListTree className="size-4 text-accent-500" />
+                    丝线目录
+                  </h2>
+                  <span className="rounded-full bg-accent-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-accent-700 dark:bg-accent-500/18 dark:text-accent-200">
+                    {readingPercent}%
+                  </span>
                 </div>
-                <nav className="space-y-1 border-l border-slate-200/80 pl-2.5 dark:border-white/10">
-                  {headings.map((heading) => {
-                    const isActive = activeHeadingId === heading.id;
 
-                    return (
-                      <a
-                        key={heading.id}
-                        href={`#${heading.id}`}
-                        className={cn(
-                          "block rounded-lg px-2.5 py-1.5 text-xs leading-5 transition",
-                          heading.level === 2 && "ml-1.5",
-                          heading.level === 3 && "ml-3 text-[11px]",
-                          isActive
-                            ? "bg-accent-50 font-semibold text-accent-700 dark:bg-accent-500/18 dark:text-accent-200"
-                            : "text-slate-500 hover:bg-surface-muted hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-white",
-                        )}
-                      >
-                        {heading.text}
-                      </a>
-                    );
-                  })}
+                <nav className="relative pl-3">
+                  {/* Continuous silk thread spine */}
+                  <span
+                    aria-hidden="true"
+                    className="absolute bottom-1 left-0 top-1 w-0.5 rounded-full bg-slate-200/80 dark:bg-white/10"
+                  />
+                  {/* Sliding glowing silk cursor */}
+                  <motion.span
+                    aria-hidden="true"
+                    animate={{
+                      height: Math.max(18, silkIndicator.height - 8),
+                      top: silkIndicator.top + 4,
+                    }}
+                    transition={{ type: "spring", stiffness: 360, damping: 32 }}
+                    className="absolute left-[-1px] w-1 rounded-full bg-gradient-to-b from-accent-500 to-sky-400 shadow-[0_0_10px_var(--accent-glow)]"
+                  />
+
+                  <div className="space-y-1">
+                    {headings.map((heading) => {
+                      const isActive = activeHeadingId === heading.id;
+
+                      return (
+                        <a
+                          key={heading.id}
+                          ref={(node) => {
+                            tocLinkRefs.current[heading.id] = node;
+                          }}
+                          href={`#${heading.id}`}
+                          className={cn(
+                            "block rounded-lg px-2.5 py-1.5 text-xs leading-5 transition",
+                            heading.level === 2 && "pl-4",
+                            heading.level === 3 && "pl-6 text-[11px]",
+                            isActive
+                              ? "bg-accent-50 font-semibold text-accent-700 dark:bg-accent-500/18 dark:text-accent-200"
+                              : "text-slate-500 hover:bg-surface-muted hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-white",
+                          )}
+                        >
+                          {heading.text}
+                        </a>
+                      );
+                    })}
+                  </div>
                 </nav>
               </section>
             ) : null}
@@ -409,6 +600,7 @@ export function PostArticle({
         </div>
       </main>
 
+      <FloatingDock />
       <SiteFooter />
     </div>
   );

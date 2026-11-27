@@ -20,6 +20,14 @@ const themeBootstrapScript = `
     } else {
       root.dataset.accent = "sakura";
     }
+    const storedMotion = localStorage.getItem("mynewblog:motion");
+    if (storedMotion === "full" || storedMotion === "subtle" || storedMotion === "off") {
+      root.dataset.motion = storedMotion;
+    } else {
+      root.dataset.motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "off" : "full";
+    }
+    const storedPetals = localStorage.getItem("mynewblog:petals");
+    root.dataset.petals = storedPetals === "false" ? "false" : "true";
   } catch {}
 })();
 `;
